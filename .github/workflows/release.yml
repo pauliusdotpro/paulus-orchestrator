@@ -195,7 +195,15 @@ jobs:
           bunx electron-builder "${args[@]}"
 
           if [[ "${{ matrix.platform }}" == "mac" ]]; then
-            xcrun stapler staple "dist/mac-${{ matrix.arch }}/Paulus Orchestrator.app"
+            app_path="$(find dist -maxdepth 2 -type d -name 'Paulus Orchestrator.app' | head -n 1)"
+
+            if [[ -z "$app_path" ]]; then
+              echo "Failed to locate built app bundle in dist/" >&2
+              find dist -maxdepth 2 -print >&2
+              exit 1
+            fi
+
+            xcrun stapler staple "$app_path"
             codesign --force --sign "$SIGNING_IDENTITY" --timestamp "dist/Paulus-Orchestrator-${{ needs.preflight.outputs.version }}-mac-${{ matrix.arch }}.dmg"
             xcrun notarytool submit "dist/Paulus-Orchestrator-${{ needs.preflight.outputs.version }}-mac-${{ matrix.arch }}.dmg" \
               --key "$APPLE_API_KEY" \
