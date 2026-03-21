@@ -1,0 +1,13 @@
+{
+  "name": "@paulus/bridge",
+  "private": true,
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@paulus/shared": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

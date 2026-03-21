@@ -1,0 +1,54 @@
+name: Issue Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/issue-labels.yml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+env:
+  NODE_VERSION: 24
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sync:
+    name: Sync issue labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure managed labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const managedLabels = [
+              { name: "bug",           color: "d73a4a", description: "Something is broken or behaving incorrectly." },
+              { name: "enhancement",   color: "a2eeef", description: "Requested improvement or new capability." },
+              { name: "needs-triage",  color: "fbca04", description: "Issue needs maintainer review." },
+              { name: "good first issue", color: "7057ff", description: "Good for newcomers." },
+              { name: "help wanted",   color: "008672", description: "Extra attention is needed." },
+              { name: "documentation", color: "0075ca", description: "Improvements or additions to documentation." },
+              { name: "wontfix",       color: "ffffff", description: "This will not be worked on." },
+              { name: "duplicate",     color: "cfd3d7", description: "This issue or pull request already exists." },
+            ];
+
+            for (const label of managedLabels) {
+              try {
+                const { data: existing } = await github.rest.issues.getLabel({
+                  owner: context.repo.owner, repo: context.repo.repo, name: label.name,
+                });
+                if (existing.color !== label.color || (existing.description ?? "") !== label.description) {
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner, repo: context.repo.repo, ...label,
+                  });
+                }
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo, ...label,
+                  });
+                } else throw e;
+              }
+            }

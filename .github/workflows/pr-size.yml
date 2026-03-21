@@ -1,0 +1,84 @@
+name: PR Size
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  NODE_VERSION: 24
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  label:
+    name: Label PR size
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-size-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Sync PR size label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const managedLabels = [
+              { name: "size:XS",  color: "0e8a16", description: "0-9 changed lines" },
+              { name: "size:S",   color: "5ebd3e", description: "10-29 changed lines" },
+              { name: "size:M",   color: "fbca04", description: "30-99 changed lines" },
+              { name: "size:L",   color: "fe7d37", description: "100-499 changed lines" },
+              { name: "size:XL",  color: "d93f0b", description: "500-999 changed lines" },
+              { name: "size:XXL", color: "b60205", description: "1,000+ changed lines" },
+            ];
+
+            // Ensure labels exist
+            for (const label of managedLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner, repo: context.repo.repo, name: label.name,
+                });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner, repo: context.repo.repo, ...label,
+                  });
+                }
+              }
+            }
+
+            const pr = context.payload.pull_request;
+            const changed = (pr.additions ?? 0) + (pr.deletions ?? 0);
+            const managedNames = new Set(managedLabels.map(l => l.name));
+
+            const sizeLabel =
+              changed < 10   ? "size:XS" :
+              changed < 30   ? "size:S" :
+              changed < 100  ? "size:M" :
+              changed < 500  ? "size:L" :
+              changed < 1000 ? "size:XL" : "size:XXL";
+
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: pr.number, per_page: 100,
+            });
+
+            for (const label of currentLabels) {
+              if (managedNames.has(label.name) && label.name !== sizeLabel) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: pr.number, name: label.name,
+                }).catch(e => { if (e.status !== 404) throw e; });
+              }
+            }
+
+            if (!currentLabels.some(l => l.name === sizeLabel)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: pr.number, labels: [sizeLabel],
+              });
+            }
+
+            core.info(`PR #${pr.number}: ${changed} changed lines -> ${sizeLabel}`);

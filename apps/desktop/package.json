@@ -1,0 +1,38 @@
+{
+  "name": "@paulus/desktop",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Open-source, local-first, AI-first server manager desktop app",
+  "homepage": "https://github.com/pauliusdotpro/paulus-orchestrator",
+  "author": {
+    "name": "pauliusdotpro",
+    "email": "paulus@paulius.pro"
+  },
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:dist": "electron-vite build && electron-builder --config electron-builder.yml",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@paulus/shared": "workspace:*",
+    "@paulus/bridge": "workspace:*",
+    "@paulus/ai": "workspace:*",
+    "@paulus/core": "workspace:*",
+    "@paulus/ui": "workspace:*",
+    "ssh2": "^1.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "electron": "^41.0.0",
+    "electron-vite": "^5.0.0",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@types/ssh2": "^1.15.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "electron-builder": "^26.0.0"
+  }
+}

@@ -1,0 +1,40 @@
+appId: com.paulus.orchestrator
+productName: Paulus Orchestrator
+artifactName: 'Paulus-Orchestrator-${version}-${os}-${arch}.${ext}'
+directories:
+  buildResources: build
+  output: dist
+
+npmRebuild: false
+
+files:
+  - out/**/*
+  - node_modules/**/*
+
+mac:
+  icon: build/icon.icns
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  target:
+    - dmg
+    - zip
+
+linux:
+  icon: build/icon.png
+  category: Development
+  target:
+    - AppImage
+    - deb
+
+win:
+  icon: build/icon.ico
+  target:
+    - nsis
+    - zip
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

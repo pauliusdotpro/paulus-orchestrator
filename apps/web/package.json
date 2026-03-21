@@ -1,0 +1,8 @@
+{
+  "name": "@paulus/web",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "echo 'Web app not yet implemented'"
+  }
+}

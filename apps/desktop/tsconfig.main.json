@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "out/main",
+    "rootDir": "src/main",
+    "lib": ["ES2023"],
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/main"]
+}

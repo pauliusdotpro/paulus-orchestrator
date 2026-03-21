@@ -1,0 +1,40 @@
+{
+  "name": "paulus-orchestrator",
+  "private": true,
+  "packageManager": "bun@1.3.11",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd apps/desktop dev",
+    "cli": "bun run --cwd apps/cli start",
+    "app:inspect": "bun scripts/inspect-app.ts",
+    "app:logs": "bun scripts/inspect-app.ts logs --follow",
+    "app:snapshot": "bun scripts/inspect-app.ts snapshot",
+    "build": "bun run --cwd apps/desktop build",
+    "build:dist": "bun run --cwd apps/desktop build:dist",
+    "build:macos:signed": "bash scripts/build-macos-signed.sh",
+    "typecheck": "tsc --build --force",
+    "typecheck:incremental": "tsc --build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "bun run format:check && bun run typecheck",
+    "precommit": "bun run check",
+    "prepare": "husky",
+    "clean": "rm -rf apps/*/dist apps/*/out packages/*/dist"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@types/ssh2": "^1.15.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.5.3",
+    "typescript": "^5.9.3",
+    "puppeteer-core": "^24.39.1"
+  }
+}

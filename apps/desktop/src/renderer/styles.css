@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@source "../../../../packages/ui/src/**/*.tsx";
+
+/* assistant-ui markdown prose styling */
+.aui-md-root {
+  @apply text-sm leading-relaxed overflow-x-auto;
+}
+
+.aui-md-root p {
+  @apply my-2 first:mt-0 last:mb-0;
+}
+
+.aui-md-root pre {
+  @apply my-2 rounded-lg bg-zinc-950 p-3 overflow-x-auto text-xs;
+}
+
+.aui-md-root code:not(pre code) {
+  @apply rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-mono text-zinc-200;
+}
+
+.aui-md-root ul,
+.aui-md-root ol {
+  @apply my-2 pl-5;
+}
+
+.aui-md-root li {
+  @apply my-0.5;
+}
+
+.aui-md-root ul > li {
+  @apply list-disc;
+}
+
+.aui-md-root ol > li {
+  @apply list-decimal;
+}
+
+.aui-md-root h1,
+.aui-md-root h2,
+.aui-md-root h3 {
+  @apply font-semibold mt-3 mb-1 text-zinc-100;
+}
+
+.aui-md-root a {
+  @apply text-blue-400 underline;
+}
+
+.aui-md-root blockquote {
+  @apply border-l-2 border-zinc-700 pl-3 my-2 text-zinc-400;
+}
+
+.aui-md-root table {
+  @apply my-2 border-collapse text-xs;
+}
+
+.aui-md-root thead {
+  @apply bg-zinc-900/80;
+}
+
+.aui-md-root th,
+.aui-md-root td {
+  @apply border border-zinc-800 px-2 py-1 align-top whitespace-nowrap;
+}
+
+.aui-md-root th {
+  @apply text-left font-medium text-zinc-100;
+}
+
+.aui-md-root td {
+  @apply text-zinc-300;
+}
+
+.aui-md-root hr {
+  @apply my-3 border-zinc-800;
+}

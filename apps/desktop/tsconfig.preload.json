@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "out/preload",
+    "rootDir": "src/preload",
+    "lib": ["ES2023"],
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/preload"]
+}
