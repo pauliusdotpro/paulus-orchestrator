@@ -156,13 +156,24 @@ jobs:
 
             node -e "const fs = require('fs'); fs.writeFileSync('.secrets/certificate.p12', Buffer.from(process.env.CSC_LINK_BASE64, 'base64'));"
             export CSC_LINK="$PWD/.secrets/certificate.p12"
+            export KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+            security create-keychain -p "" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "" "$KEYCHAIN_PATH"
+            security import "$CSC_LINK" -k "$KEYCHAIN_PATH" -P "${CSC_KEY_PASSWORD:-}" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN_PATH"
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+            security default-keychain -d user -s "$KEYCHAIN_PATH"
+            export CSC_KEYCHAIN="$KEYCHAIN_PATH"
 
             node -e "const fs = require('fs'); fs.writeFileSync('.secrets/notarize-api-key.p8', Buffer.from(process.env.APPLE_API_KEY_BASE64, 'base64'));"
             export APPLE_API_KEY="$PWD/.secrets/notarize-api-key.p8"
-            export SIGNING_IDENTITY="$(security find-identity -v -p codesigning | sed -n 's/.*\"\(Developer ID Application:.*\)\"/\1/p' | head -n 1)"
+            export SIGNING_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*\"\(Developer ID Application:.*\)\"/\1/p' | head -n 1)"
 
             if [[ -z "$SIGNING_IDENTITY" ]]; then
               echo "Missing Developer ID Application identity in keychain" >&2
+              security find-identity -v -p codesigning "$KEYCHAIN_PATH" >&2 || true
               exit 1
             fi
           fi
