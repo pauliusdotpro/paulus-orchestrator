@@ -38,6 +38,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         encoding: 'utf-8',
         timeout: 15000,
         stdio: 'pipe',
+        env: this.buildEnv(),
       })
       return true
     } catch {
