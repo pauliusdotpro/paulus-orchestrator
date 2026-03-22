@@ -55,6 +55,10 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   const [providerTestError, setProviderTestError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (activeTab !== 'storage') {
+      return
+    }
+
     let cancelled = false
 
     const loadOverview = async () => {
@@ -76,7 +80,7 @@ export function SettingsView({ onClose }: SettingsViewProps) {
     return () => {
       cancelled = true
     }
-  }, [bridge])
+  }, [activeTab, bridge])
 
   if (!settings) return null
 

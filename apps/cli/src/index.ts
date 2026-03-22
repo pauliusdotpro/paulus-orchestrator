@@ -77,7 +77,7 @@ async function createCliRuntime(eventSink: RuntimeEventSink): Promise<PaulusRunt
     const assertPlaintextMode = async (): Promise<void> => {
       const mode =
         (await storage.get<{ mode: PasswordStorageMode }>('credentials-meta'))?.mode ??
-        'plaintext-json'
+        'safe-storage'
 
       if (mode !== 'plaintext-json') {
         throw new Error(
