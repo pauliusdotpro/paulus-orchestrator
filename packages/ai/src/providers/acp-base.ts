@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import { randomUUID } from 'crypto'
 import { tmpdir } from 'os'
 import type { AIEvent, AIModelOption } from '@paulus/shared'
@@ -34,7 +34,8 @@ export abstract class AcpBaseProvider implements AIProvider {
 
   async available(): Promise<boolean> {
     try {
-      execSync(`npx --yes ${this.packageName} --help`, {
+      const { command, args } = this.getLaunchCommand()
+      execFileSync(command, [...args, '--help'], {
         encoding: 'utf-8',
         timeout: 15000,
         stdio: 'pipe',
@@ -412,8 +413,16 @@ export abstract class AcpBaseProvider implements AIProvider {
   }
 
   private createClient(): AcpClient {
-    console.log(`[${this.name}] Spawning ACP agent: npx ${this.packageName}`)
-    return new AcpClient('npx', ['--yes', this.packageName], this.buildEnv())
+    const { command, args } = this.getLaunchCommand()
+    console.log(`[${this.name}] Spawning ACP agent: ${command} ${args.join(' ')}`)
+    return new AcpClient(command, args, this.buildEnv())
+  }
+
+  private getLaunchCommand(): { command: string; args: string[] } {
+    return {
+      command: 'npx',
+      args: ['--yes', this.packageName],
+    }
   }
 
   private buildEnv(): NodeJS.ProcessEnv {

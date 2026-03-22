@@ -5,6 +5,7 @@ import type { StorageService } from '@paulus/core'
 
 const CREDENTIALS_KEY = 'credentials'
 const CREDENTIALS_META_KEY = 'credentials-meta'
+const DEFAULT_PASSWORD_STORAGE_MODE: PasswordStorageMode = 'safe-storage'
 
 interface StoredCredentials {
   [serverId: string]: string
@@ -134,7 +135,14 @@ export class DesktopCredentialStoreManager implements CredentialStore {
 
   async getMode(): Promise<PasswordStorageMode> {
     const metadata = await this.storage.get<CredentialMetadata>(CREDENTIALS_META_KEY)
-    return metadata?.mode ?? 'plaintext-json'
+    if (metadata?.mode) {
+      return metadata.mode
+    }
+
+    await this.storage.set<CredentialMetadata>(CREDENTIALS_META_KEY, {
+      mode: DEFAULT_PASSWORD_STORAGE_MODE,
+    })
+    return DEFAULT_PASSWORD_STORAGE_MODE
   }
 
   getModeOptions(): PasswordStorageModeOption[] {
@@ -151,7 +159,7 @@ export class DesktopCredentialStoreManager implements CredentialStore {
         mode: 'safe-storage',
         label: 'OS-backed encryption',
         description:
-          'Passwords are encrypted with Electron safeStorage and decrypted through your OS user account.',
+          'Passwords are encrypted with Electron safeStorage and decrypted through your OS user account. Default for desktop installs.',
         available: safeStorageAvailable,
         unavailableReason: safeStorageAvailable
           ? undefined
