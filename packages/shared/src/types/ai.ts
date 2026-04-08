@@ -114,6 +114,7 @@ export interface AISession {
   messages: AIMessage[]
   provider: AIProviderType
   model: string | null
+  yoloMode: boolean
   createdAt: string
   updatedAt: string
 }
@@ -121,4 +122,5 @@ export interface AISession {
 export interface AISessionConfig {
   provider: AIProviderType
   model: string | null
+  yoloMode: boolean
 }

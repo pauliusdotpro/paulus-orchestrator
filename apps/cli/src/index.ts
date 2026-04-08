@@ -194,6 +194,7 @@ async function resolveSession(
   const session = await runtime.sessions.create(serverId, {
     provider: settings.activeProvider,
     model: null,
+    yoloMode: false,
   })
   return session.id
 }

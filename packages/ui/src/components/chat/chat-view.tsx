@@ -54,6 +54,7 @@ export function ChatView({ serverId, isConnected, connectionStatus }: ChatViewPr
     ? {
         provider: sessionForServer.provider,
         model: sessionForServer.model,
+        yoloMode: sessionForServer.yoloMode,
       }
     : (draftConfigs[serverId] ?? null)
 
@@ -78,6 +79,12 @@ export function ChatView({ serverId, isConnected, connectionStatus }: ChatViewPr
               : 'Viewing session history. Reconnect to continue chatting or approve commands.'}
           </div>
         )}
+
+        {selectedConfig?.yoloMode ? (
+          <div className="border-b border-red-900/70 bg-red-950/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-200">
+            Danger: YOLO mode is on. AI command tool calls auto-approve for this chat.
+          </div>
+        ) : null}
 
         <Thread serverId={serverId} isConnected={isConnected} />
       </div>
@@ -196,6 +203,7 @@ function SessionConfigControls({ serverId }: { serverId: string }) {
     ? {
         provider: sessionForServer.provider,
         model: sessionForServer.model,
+        yoloMode: sessionForServer.yoloMode,
       }
     : (draftConfigs[serverId] ?? null)
 
@@ -228,6 +236,7 @@ function SessionConfigControls({ serverId }: { serverId: string }) {
           const nextConfig = {
             provider,
             model: null,
+            yoloMode: config.yoloMode,
           } satisfies AISessionConfig
           applyConfig(nextConfig)
           loadModels(bridge, provider).catch(() => {})
@@ -250,6 +259,7 @@ function SessionConfigControls({ serverId }: { serverId: string }) {
           applyConfig({
             provider: config.provider,
             model: event.target.value || null,
+            yoloMode: config.yoloMode,
           })
         }
         className="max-w-44 rounded-md border-none bg-zinc-700/40 px-2.5 py-1.5 text-[11px] text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50 cursor-pointer hover:bg-zinc-700/60 transition-colors appearance-none"
@@ -264,6 +274,26 @@ function SessionConfigControls({ serverId }: { serverId: string }) {
           </option>
         ))}
       </select>
+
+      <button
+        type="button"
+        disabled={selectionDisabled}
+        onClick={() =>
+          applyConfig({
+            provider: config.provider,
+            model: config.model,
+            yoloMode: !config.yoloMode,
+          })
+        }
+        title="Danger: when enabled, AI command tool calls are auto-approved for this chat."
+        className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          config.yoloMode
+            ? 'border border-red-500/80 bg-red-600 text-white shadow-sm shadow-red-950/60 hover:bg-red-500'
+            : 'border border-zinc-700/70 bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/70 hover:text-zinc-300'
+        }`}
+      >
+        YOLO
+      </button>
 
       {modelError ? (
         <span className="text-[10px] text-amber-400/80 ml-1" title={modelError}>

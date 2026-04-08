@@ -49,6 +49,7 @@ export class AIOrchestrator {
     const session = await this.sessionManager.get(sessionId)
     const serverConfig = this.serverManager.getConfig(serverId)
     if (!serverConfig) throw new Error(`Server not found: ${serverId}`)
+    const yoloMode = session.yoloMode === true
 
     const userMessage: AIMessage = {
       id: randomUUID(),
@@ -107,6 +108,10 @@ export class AIOrchestrator {
               sessionId,
               startedAt: event.tool.startedAt ?? new Date().toISOString(),
             })
+
+            if (yoloMode) {
+              void this.approve(sessionId, event.tool.id)
+            }
           }
         }
       } finally {

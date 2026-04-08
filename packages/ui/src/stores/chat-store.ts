@@ -44,6 +44,7 @@ async function getDefaultSessionConfig(bridge: Bridge): Promise<AISessionConfig>
   return {
     provider: settings.activeProvider,
     model: null,
+    yoloMode: false,
   }
 }
 

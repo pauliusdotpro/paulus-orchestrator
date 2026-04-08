@@ -37,10 +37,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sessions: {
     list: (serverId: string) => ipcRenderer.invoke('sessions:list', serverId),
     get: (sessionId: string) => ipcRenderer.invoke('sessions:get', sessionId),
-    create: (serverId: string, config: { provider: string; model: string | null }) =>
-      ipcRenderer.invoke('sessions:create', { serverId, config }),
-    update: (sessionId: string, config: { provider: string; model: string | null }) =>
-      ipcRenderer.invoke('sessions:update', { sessionId, config }),
+    create: (
+      serverId: string,
+      config: { provider: string; model: string | null; yoloMode: boolean },
+    ) => ipcRenderer.invoke('sessions:create', { serverId, config }),
+    update: (
+      sessionId: string,
+      config: { provider: string; model: string | null; yoloMode: boolean },
+    ) => ipcRenderer.invoke('sessions:update', { sessionId, config }),
     delete: (sessionId: string) => ipcRenderer.invoke('sessions:delete', sessionId),
   },
   terminals: {
