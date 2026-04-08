@@ -7,7 +7,7 @@ import {
   type ReasoningMessagePartProps,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react'
-import type { AISessionConfig, AIProviderType } from '@paulus/shared'
+import type { AISessionConfig, AIProviderType, AIToolKind, AIToolStatus } from '@paulus/shared'
 import { useChatStore, useSettingsStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import { useAssistantRuntime } from '../../hooks/use-assistant-runtime'
@@ -15,14 +15,19 @@ import { MarkdownText } from './markdown-text'
 import { AI_PROVIDER_LABELS, getSupportedAIProviders } from '../../lib/ai'
 
 type ToolArtifact = {
-  kind?: 'server-command' | 'tool'
-  status?: 'pending' | 'running' | 'complete' | 'rejected'
+  kind?: AIToolKind
+  status?: AIToolStatus
   title?: string
   command?: string
   explanation?: string
   stdout?: string
   stderr?: string
+  stdoutTruncated?: boolean
+  stderrTruncated?: boolean
   exitCode?: number
+  error?: string
+  startedAt?: string
+  endedAt?: string
 }
 
 interface ChatViewProps {
@@ -299,7 +304,7 @@ function ToolCallPart({
   const meta = (artifact ?? {}) as ToolArtifact
   const isServerCommand =
     meta.kind === 'server-command' || toolName === 'paulus_exec_server_command'
-  const status = meta.status ?? (result ? 'complete' : 'pending')
+  const status = meta.status ?? (result ? 'completed' : 'pending')
   const command = meta.command ?? (typeof args?.command === 'string' ? args.command : null)
   const title = meta.title ?? humanizeToolName(toolName)
   const exitCode =
@@ -332,10 +337,13 @@ function ToolCallPart({
     Boolean(command) ||
     Boolean(detailText) ||
     Boolean(meta.explanation) ||
+    Boolean(meta.error) ||
     showApprovalActions ||
     showExitCode ||
     Boolean(stdout) ||
     Boolean(stderr) ||
+    Boolean(meta.stdoutTruncated) ||
+    Boolean(meta.stderrTruncated) ||
     showGenericResult ||
     status === 'rejected'
 
@@ -379,6 +387,8 @@ function ToolCallPart({
               <p className="text-xs leading-5 text-zinc-400">{meta.explanation}</p>
             ) : null}
 
+            {meta.error ? <p className="text-xs leading-5 text-rose-300">{meta.error}</p> : null}
+
             {showApprovalActions ? (
               <div className="flex items-center gap-2">
                 <button
@@ -414,7 +424,15 @@ function ToolCallPart({
 
             {stdout ? <OutputBlock label="stdout" tone="text-emerald-200" value={stdout} /> : null}
 
+            {meta.stdoutTruncated ? (
+              <p className="text-[11px] text-zinc-500">stdout was truncated for display.</p>
+            ) : null}
+
             {stderr ? <OutputBlock label="stderr" tone="text-rose-200" value={stderr} /> : null}
+
+            {meta.stderrTruncated ? (
+              <p className="text-[11px] text-zinc-500">stderr was truncated for display.</p>
+            ) : null}
 
             {showGenericResult ? (
               <OutputBlock
@@ -474,8 +492,10 @@ function statusLabel(status: ToolArtifact['status']): string {
   switch (status) {
     case 'running':
       return 'Running'
-    case 'complete':
+    case 'completed':
       return 'Complete'
+    case 'error':
+      return 'Error'
     case 'rejected':
       return 'Rejected'
     case 'pending':
@@ -488,8 +508,10 @@ function statusTone(status: ToolArtifact['status']): string {
   switch (status) {
     case 'running':
       return 'bg-sky-950 text-sky-300 border border-sky-900/70'
-    case 'complete':
+    case 'completed':
       return 'bg-emerald-950 text-emerald-300 border border-emerald-900/70'
+    case 'error':
+      return 'bg-rose-950 text-rose-300 border border-rose-900/70'
     case 'rejected':
       return 'bg-zinc-800 text-zinc-300 border border-zinc-700'
     case 'pending':

@@ -1,15 +1,26 @@
 import type { ThreadMessageLike } from '@assistant-ui/react'
-import type { AIEvent, AIMessage } from '@paulus/shared'
+import type {
+  AICommandToolOutput,
+  AIEvent,
+  AIMessage,
+  AIToolKind,
+  AIToolStatus,
+} from '@paulus/shared'
 
 type ToolArtifact = {
-  kind?: 'server-command' | 'tool'
-  status?: 'pending' | 'running' | 'complete' | 'rejected'
+  kind?: AIToolKind
+  status?: AIToolStatus
   title?: string
   command?: string
   explanation?: string
   stdout?: string
   stderr?: string
+  stdoutTruncated?: boolean
+  stderrTruncated?: boolean
   exitCode?: number
+  error?: string
+  startedAt?: string
+  endedAt?: string
 }
 
 type MessageContent = Exclude<ThreadMessageLike['content'], string>
@@ -67,6 +78,25 @@ function normalizeToolCallArgs(event: Extract<AIEvent, { type: 'tool_call' }>): 
   }
 }
 
+function getCommandOutput(output: unknown): AICommandToolOutput | null {
+  if (!output || typeof output !== 'object') return null
+
+  const candidate = output as Partial<AICommandToolOutput>
+  if (
+    typeof candidate.exitCode === 'number' &&
+    candidate.stdout &&
+    typeof candidate.stdout === 'object' &&
+    typeof candidate.stdout.text === 'string' &&
+    candidate.stderr &&
+    typeof candidate.stderr === 'object' &&
+    typeof candidate.stderr.text === 'string'
+  ) {
+    return candidate as AICommandToolOutput
+  }
+
+  return null
+}
+
 function upsertToolCall(
   parts: MutableMessageContent,
   toolIndex: Map<string, number>,
@@ -120,6 +150,49 @@ export function buildMessageContent(message: AIMessage): MessageContent | string
       case 'thinking':
         appendTextPart(parts, 'reasoning', event.text)
         break
+      case 'tool_state': {
+        const tool = event.tool
+        const commandOutput = getCommandOutput(tool.output)
+        const result =
+          tool.result ??
+          (commandOutput
+            ? {
+                exitCode: commandOutput.exitCode,
+                stdout: commandOutput.stdout.text,
+                stderr: commandOutput.stderr.text,
+                stdoutTruncated: commandOutput.stdout.truncated,
+                stderrTruncated: commandOutput.stderr.truncated,
+              }
+            : tool.error
+              ? { error: tool.error }
+              : undefined)
+
+        upsertToolCall(parts, toolIndex, tool.id, {
+          toolName: tool.toolName,
+          args: tool.args,
+          argsText: tool.argsText,
+          result,
+          isError:
+            tool.isError ??
+            (tool.status === 'error' || (commandOutput ? commandOutput.exitCode > 0 : false)),
+          artifact: {
+            kind: tool.kind,
+            status: tool.status,
+            title: tool.title,
+            command: tool.command,
+            explanation: tool.explanation,
+            stdout: commandOutput?.stdout.text,
+            stderr: commandOutput?.stderr.text,
+            stdoutTruncated: commandOutput?.stdout.truncated,
+            stderrTruncated: commandOutput?.stderr.truncated,
+            exitCode: commandOutput?.exitCode,
+            error: tool.error,
+            startedAt: tool.startedAt,
+            endedAt: tool.endedAt,
+          },
+        })
+        break
+      }
       case 'tool_call': {
         const { args, argsText } = normalizeToolCallArgs(event)
         upsertToolCall(parts, toolIndex, event.id, {
@@ -143,7 +216,7 @@ export function buildMessageContent(message: AIMessage): MessageContent | string
           isError: event.isError,
           artifact: {
             kind: 'tool',
-            status: 'complete',
+            status: event.isError ? 'error' : 'completed',
           },
         })
         break
@@ -200,7 +273,7 @@ export function buildMessageContent(message: AIMessage): MessageContent | string
           isError: event.exitCode > 0,
           artifact: {
             kind: 'server-command',
-            status: event.exitCode === -1 ? 'rejected' : 'complete',
+            status: event.exitCode === -1 ? 'rejected' : 'completed',
             exitCode: event.exitCode,
           },
         })

@@ -332,6 +332,50 @@ async function runChatSend(
           case 'text':
             process.stdout.write(event.text)
             break
+          case 'tool_state':
+            if (event.tool.kind !== 'server-command') {
+              break
+            }
+
+            if (event.tool.status === 'pending' && event.tool.command) {
+              process.stderr.write(`\n[command] ${event.tool.command}\n`)
+              void (async () => {
+                try {
+                  const approved = options.autoApprove
+                    ? true
+                    : await promptForApproval(event.tool.command!)
+                  if (!runtimeRef.current) return
+                  if (approved) {
+                    await runtimeRef.current.aiOrchestrator.approve(activeSessionId, event.tool.id)
+                  } else {
+                    await runtimeRef.current.aiOrchestrator.reject(activeSessionId, event.tool.id)
+                  }
+                } catch (err) {
+                  reject(err instanceof Error ? err : new Error(String(err)))
+                }
+              })()
+              break
+            }
+
+            if (event.tool.status === 'running' && event.tool.command) {
+              process.stderr.write(`[running] ${event.tool.command}\n`)
+              break
+            }
+
+            if (event.tool.status === 'completed' && event.tool.output) {
+              process.stderr.write(`[command exit ${event.tool.output.exitCode}]\n`)
+              break
+            }
+
+            if (event.tool.status === 'error' && event.tool.error) {
+              reject(new Error(event.tool.error))
+              break
+            }
+
+            if (event.tool.status === 'rejected') {
+              process.stderr.write('[command rejected]\n')
+            }
+            break
           case 'command_proposal':
             process.stderr.write(`\n[command] ${event.command}\n`)
             void (async () => {

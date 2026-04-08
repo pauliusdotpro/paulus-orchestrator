@@ -273,6 +273,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }))
         break
       case 'thinking':
+      case 'tool_state':
       case 'tool_call':
       case 'tool_result':
       case 'command_proposal':

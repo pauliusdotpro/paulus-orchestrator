@@ -18,10 +18,57 @@ interface McpToolServerOptions {
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void
 }
 
+type McpToolContent = Array<{ type: 'text'; text: string }>
+type McpToolResult = { content: McpToolContent; isError?: boolean }
+
+function formatToolError(toolName: string, error: unknown): McpToolResult {
+  const message = error instanceof Error ? error.message : String(error)
+  return {
+    isError: true,
+    content: [
+      {
+        type: 'text',
+        text: `Tool ${toolName} failed: ${message}`,
+      },
+    ],
+  }
+}
+
+function defineMcpTool<TArgs extends Record<string, unknown>>(
+  toolName: string,
+  schema: z.ZodType<TArgs>,
+  options: McpToolServerOptions,
+  handler: (args: TArgs) => Promise<McpToolResult>,
+): (rawArgs: unknown) => Promise<McpToolResult> {
+  return async (rawArgs: unknown) => {
+    const parsed = schema.safeParse(rawArgs ?? {})
+    if (!parsed.success) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: `Invalid arguments for ${toolName}: ${parsed.error.message}`,
+          },
+        ],
+      }
+    }
+
+    options.onToolCall?.(toolName, parsed.data)
+
+    try {
+      return await handler(parsed.data)
+    } catch (error) {
+      return formatToolError(toolName, error)
+    }
+  }
+}
+
 function registerTools(mcpServer: McpServer, options: McpToolServerOptions): void {
   const commandSchema: z.ZodType<{ command: string }> = z.object({
     command: z.string().min(1).describe('Shell command to run on the selected remote server'),
   })
+  const emptySchema: z.ZodType<Record<string, never>> = z.object({})
 
   mcpServer.registerTool(
     'paulus_exec_server_command',
@@ -30,13 +77,12 @@ function registerTools(mcpServer: McpServer, options: McpToolServerOptions): voi
         'Execute a shell command on the selected remote server through Paulus Orchestrator.',
       inputSchema: commandSchema,
     },
-    async ({ command }: { command: string }) => {
-      options.onToolCall?.('paulus_exec_server_command', { command })
+    defineMcpTool('paulus_exec_server_command', commandSchema, options, async ({ command }) => {
       const result = await options.executeCommand(command)
       return {
         content: [
           {
-            type: 'text' as const,
+            type: 'text',
             text:
               `Command: ${command}\n` +
               `Exit code: ${result.exitCode}\n` +
@@ -45,21 +91,21 @@ function registerTools(mcpServer: McpServer, options: McpToolServerOptions): voi
           },
         ],
       }
-    },
+    }),
   )
 
   mcpServer.registerTool(
     'paulus_get_server_context',
     {
       description: 'Return the selected server metadata Paulus already knows.',
+      inputSchema: emptySchema,
     },
-    async () => {
-      options.onToolCall?.('paulus_get_server_context', {})
+    defineMcpTool('paulus_get_server_context', emptySchema, options, async () => {
       const server = options.server
       return {
         content: [
           {
-            type: 'text' as const,
+            type: 'text',
             text:
               `Name: ${server.name}\n` +
               `Host/IP: ${server.host}\n` +
@@ -71,7 +117,7 @@ function registerTools(mcpServer: McpServer, options: McpToolServerOptions): voi
           },
         ],
       }
-    },
+    }),
   )
 }
 

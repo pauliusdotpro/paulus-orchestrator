@@ -76,6 +76,11 @@ export async function testAIProvider(providerType: AIProviderType): Promise<AIPr
             continue
           }
 
+          if (event.type === 'tool_state' && event.tool.status === 'pending') {
+            toolCalls.push({ name: event.tool.toolName, argsText: event.tool.argsText })
+            continue
+          }
+
           if (event.type === 'error') {
             errors.push(event.message)
           }
