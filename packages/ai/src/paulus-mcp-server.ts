@@ -130,7 +130,7 @@ export class PaulusMcpServer {
   constructor(private readonly options: McpToolServerOptions) {
     this.mcpServer = new McpServer({
       name: 'paulus-orchestrator',
-      version: '0.3.1',
+      version: '0.3.2',
     })
 
     registerTools(this.mcpServer, options)

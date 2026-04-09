@@ -76,7 +76,7 @@ export abstract class AcpBaseProvider implements AIProvider {
     try {
       await client.request('initialize', {
         protocolVersion: 1,
-        clientInfo: { name: 'paulus-orchestrator', version: '0.3.1' },
+        clientInfo: { name: 'paulus-orchestrator', version: '0.3.2' },
         clientCapabilities: {
           fs: { readTextFile: false, writeTextFile: false },
           terminal: false,
@@ -405,7 +405,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         console.log(`[${this.name}] Sending initialize...`)
         const initResult = await client.request('initialize', {
           protocolVersion: 1,
-          clientInfo: { name: 'paulus-orchestrator', version: '0.3.1' },
+          clientInfo: { name: 'paulus-orchestrator', version: '0.3.2' },
           clientCapabilities: {
             fs: { readTextFile: false, writeTextFile: false },
             terminal: false,
