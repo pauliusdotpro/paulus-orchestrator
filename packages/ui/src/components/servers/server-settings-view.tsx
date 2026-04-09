@@ -36,6 +36,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
   const [clearSavedPassword, setClearSavedPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const autoConnectAvailable = form.authMethod === 'key'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,7 +61,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
           username: form.username,
           authMethod: form.authMethod,
           privateKeyPath: form.authMethod === 'key' ? form.privateKeyPath || undefined : undefined,
-          autoConnect: form.autoConnect,
+          autoConnect: autoConnectAvailable ? form.autoConnect : false,
           hasPassword: form.authMethod === 'password' ? server.hasPassword : false,
         },
         password,
@@ -138,7 +139,13 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
               password={form.password}
               hasSavedPassword={Boolean(server.hasPassword)}
               clearSavedPassword={clearSavedPassword}
-              onAuthMethodChange={(authMethod) => setForm({ ...form, authMethod })}
+              onAuthMethodChange={(authMethod) =>
+                setForm({
+                  ...form,
+                  authMethod,
+                  autoConnect: authMethod === 'key' ? form.autoConnect : false,
+                })
+              }
               onPrivateKeyPathChange={(privateKeyPath) => setForm({ ...form, privateKeyPath })}
               onPasswordChange={(password) => {
                 setForm({ ...form, password })
@@ -152,6 +159,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
 
           {activeTab === 'advanced' && (
             <AdvancedTab
+              authMethod={form.authMethod}
               autoConnect={form.autoConnect}
               onAutoConnectChange={(autoConnect) => setForm({ ...form, autoConnect })}
             />
@@ -336,7 +344,7 @@ function AuthenticationTab({
           <p className="text-xs text-zinc-500 mt-1.5">
             {hasSavedPassword
               ? 'Leave blank to keep the current saved password.'
-              : 'Encrypted and stored locally via OS keychain.'}
+              : 'Encrypted and stored locally via OS keychain. Paulus only reads it when you connect.'}
           </p>
           {hasSavedPassword && password.length === 0 && (
             <label className="mt-3 flex items-center gap-2 cursor-pointer">
@@ -356,12 +364,16 @@ function AuthenticationTab({
 }
 
 function AdvancedTab({
+  authMethod,
   autoConnect,
   onAutoConnectChange,
 }: {
+  authMethod: 'password' | 'key'
   autoConnect: boolean
   onAutoConnectChange: (autoConnect: boolean) => void
 }) {
+  const autoConnectAvailable = authMethod === 'key'
+
   return (
     <section className="space-y-5">
       <div>
@@ -374,16 +386,26 @@ function AdvancedTab({
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
-          checked={autoConnect}
+          checked={autoConnectAvailable && autoConnect}
           onChange={(e) => onAutoConnectChange(e.target.checked)}
+          disabled={!autoConnectAvailable}
           className="rounded border-zinc-600 bg-zinc-800"
         />
-        <span className="text-sm text-zinc-300">Auto-connect on launch</span>
+        <span className={`text-sm ${autoConnectAvailable ? 'text-zinc-300' : 'text-zinc-500'}`}>
+          Auto-connect on launch
+        </span>
       </label>
 
-      <p className="text-xs text-zinc-500">
-        If this server is already connected, reconnect to apply updated connection details.
-      </p>
+      {autoConnectAvailable ? (
+        <p className="text-xs text-zinc-500">
+          If this server is already connected, reconnect to apply updated connection details.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-500">
+          Launch auto-connect is only available for SSH key authentication. Password-based
+          servers require manual connect so the OS keychain prompt never appears on app open.
+        </p>
+      )}
     </section>
   )
 }

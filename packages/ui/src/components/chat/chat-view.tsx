@@ -128,18 +128,37 @@ function UserMessage() {
 function AssistantMessage({ isConnected }: { isConnected: boolean }) {
   return (
     <MessagePrimitive.Root>
-      <div className="min-w-0 px-4 py-3 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-zinc-300 space-y-3">
-        <MessagePrimitive.Parts
-          components={{
-            Text: MarkdownText,
-            Reasoning: ReasoningPart,
-            tools: {
-              Override: (props) => <ToolCallPart {...props} isConnected={isConnected} />,
-            },
-          }}
-        />
-      </div>
+      <MessagePrimitive.If hasContent>
+        <div className="min-w-0 px-4 py-3 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-zinc-300 space-y-3">
+          <MessagePrimitive.Parts
+            components={{
+              Text: MarkdownText,
+              Reasoning: ReasoningPart,
+              tools: {
+                Override: (props) => <ToolCallPart {...props} isConnected={isConnected} />,
+              },
+            }}
+          />
+        </div>
+      </MessagePrimitive.If>
+      <MessagePrimitive.If hasContent={false}>
+        <AssistantMessagePending />
+      </MessagePrimitive.If>
     </MessagePrimitive.Root>
+  )
+}
+
+function AssistantMessagePending() {
+  return (
+    <div
+      className="flex items-center gap-1.5 px-4 py-3"
+      role="status"
+      aria-label="Assistant is thinking"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse" />
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse [animation-delay:150ms]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse [animation-delay:300ms]" />
+    </div>
   )
 }
 

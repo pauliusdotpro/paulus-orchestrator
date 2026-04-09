@@ -15,6 +15,12 @@ interface CredentialMetadata {
   mode: PasswordStorageMode
 }
 
+interface SafeStorageAdapter {
+  isEncryptionAvailable(): boolean
+  decryptString(value: Buffer): string
+  encryptString(value: string): Buffer
+}
+
 interface ManagedCredentialStore extends CredentialStore {
   exportAll(): Promise<Record<string, string>>
   importAll(passwords: Record<string, string>): Promise<void>
@@ -50,10 +56,13 @@ class PlaintextJsonCredentialStore implements ManagedCredentialStore {
 }
 
 class SafeStorageCredentialStore implements ManagedCredentialStore {
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    private readonly safeStorageAdapter: SafeStorageAdapter,
+  ) {}
 
   private assertAvailable(): void {
-    if (!safeStorage.isEncryptionAvailable()) {
+    if (!this.safeStorageAdapter.isEncryptionAvailable()) {
       throw new Error(
         'OS-backed encryption is not available on this machine. Saved passwords cannot be switched to safe storage.',
       )
@@ -61,36 +70,40 @@ class SafeStorageCredentialStore implements ManagedCredentialStore {
   }
 
   async savePassword(serverId: string, password: string): Promise<void> {
-    const creds = await this.exportAll()
-    creds[serverId] = password
-    await this.importAll(creds)
+    this.assertAvailable()
+
+    const encrypted = await this.readEncryptedCredentials()
+    encrypted[serverId] = this.encryptPassword(password)
+    await this.storage.set(CREDENTIALS_KEY, encrypted)
   }
 
   async getPassword(serverId: string): Promise<string | null> {
-    const creds = await this.exportAll()
-    return creds[serverId] ?? null
+    this.assertAvailable()
+
+    const encrypted = await this.readEncryptedCredentials()
+    const value = encrypted[serverId]
+    if (!value) {
+      return null
+    }
+
+    return this.decryptPassword(value)
   }
 
   async removePassword(serverId: string): Promise<void> {
-    const creds = await this.exportAll()
-    delete creds[serverId]
-    await this.importAll(creds)
+    this.assertAvailable()
+
+    const encrypted = await this.readEncryptedCredentials()
+    delete encrypted[serverId]
+    await this.storage.set(CREDENTIALS_KEY, encrypted)
   }
 
   async exportAll(): Promise<Record<string, string>> {
     this.assertAvailable()
 
-    const encrypted = (await this.storage.get<StoredCredentials>(CREDENTIALS_KEY)) ?? {}
+    const encrypted = await this.readEncryptedCredentials()
     const decryptedEntries = await Promise.all(
       Object.entries(encrypted).map(async ([serverId, value]) => {
-        try {
-          const decrypted = safeStorage.decryptString(Buffer.from(value, 'base64'))
-          return [serverId, decrypted] as const
-        } catch {
-          throw new Error(
-            'Saved passwords could not be decrypted with the current OS-backed encryption context.',
-          )
-        }
+        return [serverId, this.decryptPassword(value)] as const
       }),
     )
 
@@ -102,10 +115,28 @@ class SafeStorageCredentialStore implements ManagedCredentialStore {
 
     const encryptedEntries = Object.entries(passwords).map(([serverId, password]) => [
       serverId,
-      safeStorage.encryptString(password).toString('base64'),
+      this.encryptPassword(password),
     ])
 
     await this.storage.set(CREDENTIALS_KEY, Object.fromEntries(encryptedEntries))
+  }
+
+  private async readEncryptedCredentials(): Promise<StoredCredentials> {
+    return (await this.storage.get<StoredCredentials>(CREDENTIALS_KEY)) ?? {}
+  }
+
+  private decryptPassword(value: string): string {
+    try {
+      return this.safeStorageAdapter.decryptString(Buffer.from(value, 'base64'))
+    } catch {
+      throw new Error(
+        'Saved passwords could not be decrypted with the current OS-backed encryption context.',
+      )
+    }
+  }
+
+  private encryptPassword(password: string): string {
+    return this.safeStorageAdapter.encryptString(password).toString('base64')
   }
 }
 
@@ -113,9 +144,12 @@ export class DesktopCredentialStoreManager implements CredentialStore {
   private readonly plaintextStore: ManagedCredentialStore
   private readonly safeStore: ManagedCredentialStore
 
-  constructor(private readonly storage: StorageService) {
+  constructor(
+    private readonly storage: StorageService,
+    safeStorageAdapter: SafeStorageAdapter = safeStorage,
+  ) {
     this.plaintextStore = new PlaintextJsonCredentialStore(storage)
-    this.safeStore = new SafeStorageCredentialStore(storage)
+    this.safeStore = new SafeStorageCredentialStore(storage, safeStorageAdapter)
   }
 
   async savePassword(serverId: string, password: string): Promise<void> {

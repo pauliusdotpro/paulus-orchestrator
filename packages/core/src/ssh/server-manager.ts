@@ -26,7 +26,9 @@ export class ServerManager {
   }
 
   async autoConnectAll(): Promise<void> {
-    const autoConnectServers = this.servers.filter((server) => server.autoConnect)
+    const autoConnectServers = this.servers.filter(
+      (server) => server.autoConnect && server.authMethod === 'key',
+    )
     for (const server of autoConnectServers) {
       this.connect(server.id).catch(() => {
         // status updates are emitted by the connection pool
@@ -93,7 +95,8 @@ export class ServerManager {
   async connect(id: string): Promise<void> {
     const config = this.getConfig(id)
     if (!config) throw new Error(`Server not found: ${id}`)
-    const password = await this.credentials.getPassword(id)
+    const password =
+      config.authMethod === 'password' ? await this.credentials.getPassword(id) : undefined
     await this.pool.connect(config, password ?? undefined)
   }
 
