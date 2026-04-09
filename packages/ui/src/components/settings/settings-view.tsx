@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useServerStore, useSettingsStore } from '../../stores'
+import { useServerStore, useSettingsStore, useUpdaterStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import type {
   AIProviderType,
@@ -7,9 +7,10 @@ import type {
   AppDataOverview,
   PasswordStorageModeOption,
   RoyalTsxImportResult,
+  UpdaterStatus,
 } from '@paulus/shared'
 
-type GlobalSettingsTab = 'ai' | 'appearance' | 'terminal' | 'storage'
+type GlobalSettingsTab = 'ai' | 'appearance' | 'terminal' | 'storage' | 'updates'
 
 const PROVIDER_INFO: Record<AIProviderType, { label: string; description: string }> = {
   'claude-acp': {
@@ -27,6 +28,7 @@ const TABS: Array<{ id: GlobalSettingsTab; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'storage', label: 'Data Storage' },
+  { id: 'updates', label: 'Updates' },
 ]
 
 interface SettingsViewProps {
@@ -321,6 +323,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             onPasswordStorageModeChange={handlePasswordStorageModeChange}
           />
         )}
+
+        {activeTab === 'updates' && <UpdatesTab />}
       </div>
 
       <div className="border-t border-zinc-800 px-6 py-4 bg-zinc-950 flex items-center justify-between gap-3">
@@ -769,6 +773,168 @@ function DataStorageTab({
 
       {status && <div className="text-sm text-emerald-400">{status}</div>}
       {error && <div className="text-sm text-red-400">{error}</div>}
+    </section>
+  )
+}
+
+function formatStatusLabel(status: UpdaterStatus): string {
+  switch (status) {
+    case 'idle':
+      return 'Idle'
+    case 'checking':
+      return 'Checking for updates…'
+    case 'available':
+      return 'Update available'
+    case 'not-available':
+      return 'Up to date'
+    case 'downloading':
+      return 'Downloading update…'
+    case 'downloaded':
+      return 'Update ready to install'
+    case 'error':
+      return 'Error'
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let i = 0
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024
+    i += 1
+  }
+  return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+function UpdatesTab() {
+  const status = useUpdaterStore((s) => s.status)
+  const currentVersion = useUpdaterStore((s) => s.currentVersion)
+  const info = useUpdaterStore((s) => s.info)
+  const progress = useUpdaterStore((s) => s.progress)
+  const error = useUpdaterStore((s) => s.error)
+  const supported = useUpdaterStore((s) => s.supported)
+  const check = useUpdaterStore((s) => s.check)
+  const download = useUpdaterStore((s) => s.download)
+  const install = useUpdaterStore((s) => s.install)
+
+  const isBusy = status === 'checking' || status === 'downloading'
+
+  return (
+    <section className="space-y-5">
+      <div>
+        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Updates</h3>
+        <p className="text-sm text-zinc-500 mt-1">
+          Paulus Orchestrator checks for updates on startup. You can also check manually.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">Current version</div>
+            <div className="mt-1 text-sm font-medium text-zinc-100">v{currentVersion}</div>
+          </div>
+          <div className="min-w-0 text-right">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">Status</div>
+            <div
+              className={`mt-1 text-sm font-medium ${
+                status === 'error'
+                  ? 'text-red-400'
+                  : status === 'available' || status === 'downloaded'
+                    ? 'text-blue-300'
+                    : 'text-zinc-200'
+              }`}
+            >
+              {formatStatusLabel(status)}
+            </div>
+          </div>
+        </div>
+
+        {!supported && (
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            Auto-update is disabled in dev builds. Run a packaged build to test updates.
+          </div>
+        )}
+
+        {(status === 'available' || status === 'downloaded') && info && (
+          <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+            <div className="font-medium">v{info.version}</div>
+            {info.releaseDate && (
+              <div className="mt-0.5 text-blue-200/80">
+                Released {new Date(info.releaseDate).toLocaleDateString()}
+              </div>
+            )}
+            {info.releaseNotes && (
+              <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-zinc-200">
+                {info.releaseNotes}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {status === 'downloading' && progress && (
+          <div className="space-y-1">
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full bg-blue-500 transition-[width]"
+                style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-zinc-500">
+              <span>
+                {formatBytes(progress.transferred)} / {formatBytes(progress.total)}
+              </span>
+              <span>{formatBytes(progress.bytesPerSecond)}/s</span>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              check().catch(() => {})
+            }}
+            disabled={!supported || isBusy}
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {status === 'checking' ? 'Checking…' : 'Check for updates'}
+          </button>
+
+          {status === 'available' && (
+            <button
+              type="button"
+              onClick={() => {
+                download().catch(() => {})
+              }}
+              disabled={!supported}
+              className="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Download update
+            </button>
+          )}
+
+          {status === 'downloaded' && (
+            <button
+              type="button"
+              onClick={() => {
+                install().catch(() => {})
+              }}
+              className="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400"
+            >
+              Restart &amp; install
+            </button>
+          )}
+        </div>
+      </div>
     </section>
   )
 }

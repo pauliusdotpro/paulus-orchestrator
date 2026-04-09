@@ -58,5 +58,12 @@ export function createElectronBridge(): Bridge {
       get: (key) => api.storage.get(key),
       set: (key, value) => api.storage.set(key, value),
     },
+    updater: {
+      getState: () => api.updater.getState(),
+      check: () => api.updater.check(),
+      download: () => api.updater.download(),
+      install: () => api.updater.install(),
+      onEvent: (cb) => api.updater.onEvent(cb),
+    },
   }
 }

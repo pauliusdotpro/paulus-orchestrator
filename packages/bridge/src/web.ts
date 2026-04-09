@@ -58,5 +58,12 @@ export function createWebBridge(): Bridge {
       get: notImplemented,
       set: notImplemented,
     },
+    updater: {
+      getState: notImplemented,
+      check: notImplemented,
+      download: notImplemented,
+      install: notImplemented,
+      onEvent: notImplemented,
+    },
   }
 }

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { registerIPCHandlers } from './ipc'
 import { initLogger } from './logger'
 import { syncDesktopShellEnv } from './shell-env'
+import { initUpdater } from './updater'
 
 const isDev = !app.isPackaged
 
@@ -31,6 +32,11 @@ async function createWindow(): Promise<BrowserWindow> {
       initLogger(win)
     })
   }
+
+  // Silent startup update check — only surfaces to user if an update is found.
+  win.webContents.once('did-finish-load', () => {
+    initUpdater(win)
+  })
 
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

@@ -7,6 +7,11 @@ directories:
 
 npmRebuild: false
 
+publish:
+  provider: github
+  owner: pauliusdotpro
+  repo: paulus-orchestrator
+
 files:
   - out/**/*
   - node_modules/**/*

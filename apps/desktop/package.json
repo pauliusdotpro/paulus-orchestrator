@@ -22,6 +22,7 @@
     "@paulus/core": "workspace:*",
     "@paulus/ui": "workspace:*",
     "ssh2": "^1.16.0",
+    "electron-updater": "^6.3.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

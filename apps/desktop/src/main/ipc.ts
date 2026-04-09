@@ -2,6 +2,12 @@ import { ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { createDesktopRuntime } from './runtime'
 import { testAIProvider } from './provider-self-test'
+import {
+  checkForUpdates as checkUpdater,
+  downloadUpdate as downloadUpdaterUpdate,
+  getUpdaterState,
+  quitAndInstall,
+} from './updater'
 
 export async function registerIPCHandlers(win: BrowserWindow): Promise<void> {
   const runtime = await createDesktopRuntime(win)
@@ -82,4 +88,12 @@ export async function registerIPCHandlers(win: BrowserWindow): Promise<void> {
   // Storage
   ipcMain.handle('storage:get', (_, key) => storage.get(key))
   ipcMain.handle('storage:set', (_, { key, value }) => storage.set(key, value))
+
+  // Updater
+  ipcMain.handle('updater:get-state', () => getUpdaterState())
+  ipcMain.handle('updater:check', () => checkUpdater())
+  ipcMain.handle('updater:download', () => downloadUpdaterUpdate())
+  ipcMain.handle('updater:install', () => {
+    quitAndInstall()
+  })
 }

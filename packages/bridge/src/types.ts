@@ -13,6 +13,8 @@ import type {
   PasswordStorageMode,
   RoyalTsxImportResult,
   TerminalSessionState,
+  UpdaterEvent,
+  UpdaterState,
 } from '@paulus/shared'
 
 export interface Bridge {
@@ -86,5 +88,13 @@ export interface Bridge {
   storage: {
     get<T>(key: string): Promise<T | null>
     set<T>(key: string, value: T): Promise<void>
+  }
+
+  updater: {
+    getState(): Promise<UpdaterState>
+    check(): Promise<UpdaterState>
+    download(): Promise<UpdaterState>
+    install(): Promise<void>
+    onEvent(cb: (event: UpdaterEvent) => void): () => void
   }
 }
