@@ -4,18 +4,29 @@ import type { Bridge } from '@paulus/bridge'
 
 interface ServerStore {
   servers: ServerConfig[]
+  categories: string[]
   connections: Record<string, ServerConnection>
   activeServerId: string | null
   initialized: boolean
 
   init(bridge: Bridge): Promise<void>
   loadServers(bridge: Bridge): Promise<void>
+  loadCategories(bridge: Bridge): Promise<void>
   addServer(
     bridge: Bridge,
     config: Omit<ServerConfig, 'id' | 'createdAt' | 'updatedAt'>,
     password?: string,
   ): Promise<ServerConfig>
   updateServer(bridge: Bridge, config: ServerConfig, password?: string): Promise<ServerConfig>
+  moveServer(
+    bridge: Bridge,
+    serverId: string,
+    targetCategory: string,
+    beforeServerId?: string,
+  ): Promise<void>
+  createCategory(bridge: Bridge, name: string): Promise<void>
+  renameCategory(bridge: Bridge, oldName: string, newName: string): Promise<void>
+  removeCategory(bridge: Bridge, name: string): Promise<void>
   removeServer(bridge: Bridge, id: string): Promise<void>
   connectServer(bridge: Bridge, id: string): Promise<void>
   connectServerWithPassword(
@@ -31,6 +42,7 @@ interface ServerStore {
 
 export const useServerStore = create<ServerStore>((set, get) => ({
   servers: [],
+  categories: [],
   connections: {},
   activeServerId: null,
   initialized: false,
@@ -40,7 +52,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     bridge.servers.onConnectionStatus((status) => {
       get().updateConnectionStatus(status)
     })
-    await get().loadServers(bridge)
+    await Promise.all([get().loadServers(bridge), get().loadCategories(bridge)])
     set({ initialized: true })
   },
 
@@ -49,9 +61,19 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     set({ servers })
   },
 
+  async loadCategories(bridge) {
+    const categories = await bridge.servers.listCategories()
+    set({ categories })
+  },
+
   async addServer(bridge, config, password) {
     const server = await bridge.servers.add(config, password)
-    set((state) => ({ servers: [...state.servers, server] }))
+    set((state) => ({
+      servers: [...state.servers, server],
+      categories: state.categories.includes(server.category)
+        ? state.categories
+        : [...state.categories, server.category],
+    }))
     return server
   },
 
@@ -59,8 +81,36 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     const server = await bridge.servers.update(config, password)
     set((state) => ({
       servers: state.servers.map((existing) => (existing.id === server.id ? server : existing)),
+      categories: state.categories.includes(server.category)
+        ? state.categories
+        : [...state.categories, server.category],
     }))
     return server
+  },
+
+  async moveServer(bridge, serverId, targetCategory, beforeServerId) {
+    const servers = await bridge.servers.move(serverId, targetCategory, beforeServerId)
+    set((state) => ({
+      servers,
+      categories: state.categories.includes(targetCategory)
+        ? state.categories
+        : [...state.categories, targetCategory],
+    }))
+  },
+
+  async createCategory(bridge, name) {
+    const categories = await bridge.servers.createCategory(name)
+    set({ categories })
+  },
+
+  async renameCategory(bridge, oldName, newName) {
+    const result = await bridge.servers.renameCategory(oldName, newName)
+    set({ categories: result.categories, servers: result.servers })
+  },
+
+  async removeCategory(bridge, name) {
+    const result = await bridge.servers.removeCategory(name)
+    set({ categories: result.categories, servers: result.servers })
   },
 
   async removeServer(bridge, id) {

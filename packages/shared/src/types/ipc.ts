@@ -19,6 +19,17 @@ export interface IPCChannelMap {
     ServerConfig,
   ]
   'servers:update': [{ config: ServerConfig; password?: string }, ServerConfig]
+  'servers:move': [
+    { serverId: string; targetCategory: string; beforeServerId?: string },
+    ServerConfig[],
+  ]
+  'servers:list-categories': [void, string[]]
+  'servers:create-category': [string, string[]]
+  'servers:rename-category': [
+    { oldName: string; newName: string },
+    { categories: string[]; servers: ServerConfig[] },
+  ]
+  'servers:remove-category': [string, { categories: string[]; servers: ServerConfig[] }]
   'servers:remove': [string, void]
   'servers:connect': [string, void]
   'servers:connect-with-password': [{ id: string; password: string; save: boolean }, void]

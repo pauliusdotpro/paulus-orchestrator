@@ -216,6 +216,7 @@ async function runServersList(): Promise<void> {
     for (const server of servers) {
       const summary = [
         `${server.name}`,
+        `category=${server.category}`,
         `id=${server.id}`,
         `${server.username}@${server.host}:${server.port}`,
         `auth=${server.authMethod}`,

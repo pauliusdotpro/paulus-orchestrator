@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { DEFAULT_SERVER_CATEGORY } from '@paulus/shared'
 import { decryptRoyalTsxSecret, parseRoyalTsxDocument } from './royal-tsx-import'
 
 const SHARED_SECRET_B64 =
@@ -58,6 +59,7 @@ describe('Royal TSX import helpers', () => {
       {
         config: {
           name: 'shared-host',
+          category: DEFAULT_SERVER_CATEGORY,
           host: 'shared.example.com',
           port: 22,
           username: 'deploy',
@@ -68,6 +70,7 @@ describe('Royal TSX import helpers', () => {
       {
         config: {
           name: 'inline-host',
+          category: DEFAULT_SERVER_CATEGORY,
           host: 'inline.example.com',
           port: 2202,
           username: 'root',

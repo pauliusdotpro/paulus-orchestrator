@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { ServerConfig } from '@paulus/shared'
+import { DEFAULT_SERVER_CATEGORY, type ServerConfig } from '@paulus/shared'
 import { useServerStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import { ServerColorPicker } from './server-color-picker'
+import { CategoryPicker } from './category-picker'
 
 interface ServerFormProps {
   server?: ServerConfig
@@ -14,9 +15,11 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
   const bridge = useBridge()
   const addServer = useServerStore((s) => s.addServer)
   const updateServer = useServerStore((s) => s.updateServer)
+  const categories = useServerStore((s) => s.categories)
   const isEditing = Boolean(server)
   const [form, setForm] = useState(() => ({
     name: server?.name ?? '',
+    category: server?.category ?? DEFAULT_SERVER_CATEGORY,
     host: server?.host ?? '',
     port: server?.port ?? 22,
     username: server?.username ?? 'root',
@@ -37,6 +40,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
     try {
       const nextConfig = {
         name: form.name,
+        category: form.category.trim() || DEFAULT_SERVER_CATEGORY,
         host: form.host,
         port: form.port,
         username: form.username,
@@ -111,6 +115,15 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
             placeholder="My Server"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Category</label>
+          <CategoryPicker
+            value={form.category}
+            categories={categories}
+            onChange={(category) => setForm({ ...form, category })}
           />
         </div>
 

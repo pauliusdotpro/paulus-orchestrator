@@ -1,6 +1,9 @@
+export const DEFAULT_SERVER_CATEGORY = 'Uncategorized'
+
 export interface ServerConfig {
   id: string
   name: string
+  category: string
   host: string
   port: number
   username: string

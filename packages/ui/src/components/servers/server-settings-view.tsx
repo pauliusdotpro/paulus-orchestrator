@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { ServerConfig } from '@paulus/shared'
+import { DEFAULT_SERVER_CATEGORY, type ServerConfig } from '@paulus/shared'
 import { useBridge } from '../../hooks/use-bridge'
 import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
 import { ServerColorPicker } from './server-color-picker'
+import { CategoryPicker } from './category-picker'
 
 type ServerSettingsTab = 'general' | 'authentication' | 'advanced' | 'danger'
 
@@ -21,11 +22,13 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
   const bridge = useBridge()
   const updateServer = useServerStore((s) => s.updateServer)
   const removeServer = useServerStore((s) => s.removeServer)
+  const categories = useServerStore((s) => s.categories)
   const removeSessionsForServer = useChatStore((s) => s.removeSessionsForServer)
   const closeSettingsView = useSettingsStore((s) => s.closeSettingsView)
   const [activeTab, setActiveTab] = useState<ServerSettingsTab>('general')
   const [form, setForm] = useState(() => ({
     name: server.name,
+    category: server.category,
     host: server.host,
     port: server.port,
     username: server.username,
@@ -58,6 +61,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
         {
           ...server,
           name: form.name,
+          category: form.category.trim() || DEFAULT_SERVER_CATEGORY,
           host: form.host,
           port: form.port,
           username: form.username,
@@ -132,7 +136,11 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'general' && (
-            <GeneralTab form={form} onChange={(patch) => setForm({ ...form, ...patch })} />
+            <GeneralTab
+              form={form}
+              categories={categories}
+              onChange={(patch) => setForm({ ...form, ...patch })}
+            />
           )}
 
           {activeTab === 'authentication' && (
@@ -196,18 +204,22 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
 
 function GeneralTab({
   form,
+  categories,
   onChange,
 }: {
   form: {
     name: string
+    category: string
     host: string
     port: number
     username: string
     color: string | undefined
   }
+  categories: string[]
   onChange: (
     patch: Partial<{
       name: string
+      category: string
       host: string
       port: number
       username: string
@@ -230,6 +242,15 @@ function GeneralTab({
           value={form.name}
           onChange={(e) => onChange({ name: e.target.value })}
           className="w-full max-w-md px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
+        />
+      </div>
+
+      <div className="max-w-md">
+        <label className="block text-xs text-zinc-500 mb-1.5">Category</label>
+        <CategoryPicker
+          value={form.category}
+          categories={categories}
+          onChange={(category) => onChange({ category })}
         />
       </div>
 

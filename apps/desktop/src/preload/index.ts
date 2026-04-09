@@ -13,6 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('servers:add', { config, password }),
     update: (server: any, password?: string) =>
       ipcRenderer.invoke('servers:update', { config: server, password }),
+    move: (serverId: string, targetCategory: string, beforeServerId?: string) =>
+      ipcRenderer.invoke('servers:move', { serverId, targetCategory, beforeServerId }),
+    listCategories: () => ipcRenderer.invoke('servers:list-categories'),
+    createCategory: (name: string) => ipcRenderer.invoke('servers:create-category', name),
+    renameCategory: (oldName: string, newName: string) =>
+      ipcRenderer.invoke('servers:rename-category', { oldName, newName }),
+    removeCategory: (name: string) => ipcRenderer.invoke('servers:remove-category', name),
     remove: (id: string) => ipcRenderer.invoke('servers:remove', id),
     connect: (id: string) => ipcRenderer.invoke('servers:connect', id),
     connectWithPassword: (id: string, password: string, save: boolean) =>

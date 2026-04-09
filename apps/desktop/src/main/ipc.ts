@@ -14,6 +14,15 @@ export async function registerIPCHandlers(win: BrowserWindow): Promise<void> {
   ipcMain.handle('servers:update', (_, { config, password }) =>
     serverManager.update(config, password),
   )
+  ipcMain.handle('servers:move', (_, { serverId, targetCategory, beforeServerId }) =>
+    serverManager.move(serverId, targetCategory, beforeServerId),
+  )
+  ipcMain.handle('servers:list-categories', () => serverManager.listCategories())
+  ipcMain.handle('servers:create-category', (_, name) => serverManager.createCategory(name))
+  ipcMain.handle('servers:rename-category', (_, { oldName, newName }) =>
+    serverManager.renameCategory(oldName, newName),
+  )
+  ipcMain.handle('servers:remove-category', (_, name) => serverManager.removeCategory(name))
   ipcMain.handle('servers:remove', async (_, id) => {
     await sessions.deleteForServer(id)
     await serverManager.remove(id)

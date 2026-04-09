@@ -1,5 +1,9 @@
 import { createCipheriv, createDecipheriv, pbkdf2Sync } from 'node:crypto'
-import type { RoyalTsxImportSkippedEntry, ServerConfig } from '@paulus/shared'
+import {
+  DEFAULT_SERVER_CATEGORY,
+  type RoyalTsxImportSkippedEntry,
+  type ServerConfig,
+} from '@paulus/shared'
 
 const STATIC_PREFIX = Buffer.from('jtWcgJq<MKE]@M#uH3yKZi]CznpP}?}VKr3r]h{<wkp%+FMwUz', 'utf-8')
 const HEADER_TWEAK = Buffer.from('ffffffffffffffff0000000000000000', 'hex')
@@ -150,6 +154,7 @@ export function parseRoyalTsxDocument(xml: string, documentPassword = ''): Parse
       servers.push({
         config: {
           name,
+          category: DEFAULT_SERVER_CATEGORY,
           host,
           port,
           username,
@@ -186,6 +191,7 @@ export function parseRoyalTsxDocument(xml: string, documentPassword = ''): Parse
       servers.push({
         config: {
           name,
+          category: DEFAULT_SERVER_CATEGORY,
           host,
           port,
           username: credential.username,
