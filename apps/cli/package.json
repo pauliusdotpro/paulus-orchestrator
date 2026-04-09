@@ -1,7 +1,7 @@
 {
   "name": "@paulus/cli",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "scripts": {
     "start": "bun run src/index.ts"
   },
