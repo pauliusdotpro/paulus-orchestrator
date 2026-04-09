@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ServerConfig } from '@paulus/shared'
 import { useServerStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
+import { ServerColorPicker } from './server-color-picker'
 
 interface ServerFormProps {
   server?: ServerConfig
@@ -23,6 +24,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
     privateKeyPath: server?.privateKeyPath ?? '',
     password: '',
     autoConnect: server?.autoConnect ?? false,
+    color: server?.color,
   }))
   const [clearSavedPassword, setClearSavedPassword] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -41,6 +43,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
         authMethod: form.authMethod,
         privateKeyPath: form.authMethod === 'key' ? form.privateKeyPath || undefined : undefined,
         autoConnect: autoConnectAvailable ? form.autoConnect : false,
+        color: form.color,
       }
       const password =
         form.authMethod === 'key'
@@ -109,6 +112,11 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
             className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
             placeholder="My Server"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs text-zinc-400 mb-2">Color</label>
+          <ServerColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
         </div>
 
         <div className="grid grid-cols-3 gap-2">

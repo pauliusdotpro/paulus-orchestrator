@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useSettingsStore } from '../../stores'
+import { useServerStore, useSettingsStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import type {
   AIProviderType,
   AIProviderTestResult,
   AppDataOverview,
   PasswordStorageModeOption,
+  RoyalTsxImportResult,
 } from '@paulus/shared'
 
 type GlobalSettingsTab = 'ai' | 'appearance' | 'terminal' | 'storage'
@@ -40,14 +41,33 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error'
 }
 
+export async function syncRoyalTsxImportState({
+  bridge,
+  loadServers,
+  setAppDataOverview,
+}: {
+  bridge: ReturnType<typeof useBridge>
+  loadServers: (bridge: ReturnType<typeof useBridge>) => Promise<void>
+  setAppDataOverview: (overview: AppDataOverview) => void
+}): Promise<void> {
+  await loadServers(bridge)
+  setAppDataOverview(await bridge.appData.getOverview())
+}
+
 export function SettingsView({ onClose }: SettingsViewProps) {
   const bridge = useBridge()
   const settings = useSettingsStore((s) => s.settings)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
+  const loadServers = useServerStore((s) => s.loadServers)
   const [activeTab, setActiveTab] = useState<GlobalSettingsTab>('ai')
   const [appDataOverview, setAppDataOverview] = useState<AppDataOverview | null>(null)
   const [appDataError, setAppDataError] = useState<string | null>(null)
   const [appDataStatus, setAppDataStatus] = useState<string | null>(null)
+  const [royalTsxImportResult, setRoyalTsxImportResult] = useState<RoyalTsxImportResult | null>(
+    null,
+  )
+  const [isRoyalTsxImportDialogOpen, setIsRoyalTsxImportDialogOpen] = useState(false)
+  const [royalTsxDocumentPassword, setRoyalTsxDocumentPassword] = useState('')
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [providerTestResults, setProviderTestResults] = useState<
     Partial<Record<AIProviderType, AIProviderTestResult>>
@@ -124,6 +144,66 @@ export function SettingsView({ onClose }: SettingsViewProps) {
       if (filePath) {
         setAppDataStatus(`Exported servers and passwords to ${filePath}.`)
       }
+    } catch (error) {
+      setAppDataError(getErrorMessage(error))
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const handleOpenRoyalTsxImportDialog = () => {
+    setAppDataError(null)
+    setAppDataStatus(null)
+    setRoyalTsxDocumentPassword('')
+    setIsRoyalTsxImportDialogOpen(true)
+  }
+
+  const handleCloseRoyalTsxImportDialog = () => {
+    if (busyAction === 'import-royal-tsx') {
+      return
+    }
+
+    setRoyalTsxDocumentPassword('')
+    setIsRoyalTsxImportDialogOpen(false)
+  }
+
+  const handleImportRoyalTsx = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    try {
+      setBusyAction('import-royal-tsx')
+      setAppDataError(null)
+      setAppDataStatus(null)
+      const result = await bridge.appData.importRoyalTsx(royalTsxDocumentPassword)
+      if (!result) {
+        setRoyalTsxDocumentPassword('')
+        setIsRoyalTsxImportDialogOpen(false)
+        return
+      }
+
+      setRoyalTsxImportResult(result)
+      await syncRoyalTsxImportState({
+        bridge,
+        loadServers,
+        setAppDataOverview,
+      })
+      setRoyalTsxDocumentPassword('')
+      setIsRoyalTsxImportDialogOpen(false)
+
+      const skippedSummary =
+        result.skippedServerCount > 0
+          ? ` Skipped ${result.skippedServerCount} unsupported entr${
+              result.skippedServerCount === 1 ? 'y' : 'ies'
+            }.`
+          : ''
+
+      setAppDataStatus(
+        `Imported ${result.importedServerCount} Royal TSX SSH server${
+          result.importedServerCount === 1 ? '' : 's'
+        } and saved ${result.savedPasswordCount} password${
+          result.savedPasswordCount === 1 ? '' : 's'
+        } from ${result.filePath}.${skippedSummary}`,
+      )
     } catch (error) {
       setAppDataError(getErrorMessage(error))
     } finally {
@@ -231,9 +311,11 @@ export function SettingsView({ onClose }: SettingsViewProps) {
             overview={appDataOverview}
             error={appDataError}
             status={appDataStatus}
+            importResult={royalTsxImportResult}
             busyAction={busyAction}
             onOpenDirectory={handleOpenDirectory}
             onExportServers={handleExportServers}
+            onOpenRoyalTsxImportDialog={handleOpenRoyalTsxImportDialog}
             onPasswordStorageModeChange={handlePasswordStorageModeChange}
           />
         )}
@@ -249,6 +331,16 @@ export function SettingsView({ onClose }: SettingsViewProps) {
           Close
         </button>
       </div>
+
+      {isRoyalTsxImportDialogOpen && (
+        <RoyalTsxImportDialog
+          documentPassword={royalTsxDocumentPassword}
+          busyAction={busyAction}
+          onPasswordChange={setRoyalTsxDocumentPassword}
+          onCancel={handleCloseRoyalTsxImportDialog}
+          onSubmit={handleImportRoyalTsx}
+        />
+      )}
     </div>
   )
 }
@@ -443,17 +535,21 @@ function DataStorageTab({
   overview,
   error,
   status,
+  importResult,
   busyAction,
   onOpenDirectory,
   onExportServers,
+  onOpenRoyalTsxImportDialog,
   onPasswordStorageModeChange,
 }: {
   overview: AppDataOverview | null
   error: string | null
   status: string | null
+  importResult: RoyalTsxImportResult | null
   busyAction: string | null
   onOpenDirectory: () => Promise<void>
   onExportServers: () => Promise<void>
+  onOpenRoyalTsxImportDialog: () => void
   onPasswordStorageModeChange: (option: PasswordStorageModeOption) => Promise<void>
 }) {
   const currentPasswordStorageOption = overview?.passwordStorageOptions.find(
@@ -545,7 +641,47 @@ function DataStorageTab({
             >
               {busyAction === 'export-servers' ? 'Exporting...' : 'Export servers and passwords'}
             </button>
+            <button
+              onClick={() => {
+                onOpenRoyalTsxImportDialog()
+              }}
+              disabled={busyAction !== null}
+              className="px-4 py-2 rounded-lg text-sm bg-blue-500/15 text-blue-200 border border-blue-500/30 hover:border-blue-400/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {busyAction === 'import-royal-tsx' ? 'Importing...' : 'Import Royal TSX'}
+            </button>
           </div>
+
+          {importResult && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+              <div>
+                <div className="text-sm font-medium text-zinc-100">Last Royal TSX import</div>
+                <div className="mt-1 text-xs text-zinc-500 break-all">{importResult.filePath}</div>
+              </div>
+              <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                <div>Imported servers: {importResult.importedServerCount}</div>
+                <div>Saved passwords: {importResult.savedPasswordCount}</div>
+                <div>Encrypted secrets read: {importResult.encryptedSecretCount}</div>
+                <div>Skipped entries: {importResult.skippedServerCount}</div>
+              </div>
+              {importResult.skippedServers.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+                    Skipped entries
+                  </div>
+                  {importResult.skippedServers.map((entry) => (
+                    <div
+                      key={`${entry.name}:${entry.reason}`}
+                      className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2"
+                    >
+                      <div className="text-sm text-zinc-100">{entry.name}</div>
+                      <div className="mt-1 text-xs text-zinc-500">{entry.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="text-xs text-zinc-500">
@@ -604,5 +740,68 @@ function DataStorageTab({
       {status && <div className="text-sm text-emerald-400">{status}</div>}
       {error && <div className="text-sm text-red-400">{error}</div>}
     </section>
+  )
+}
+
+export function RoyalTsxImportDialog({
+  documentPassword,
+  busyAction,
+  onPasswordChange,
+  onCancel,
+  onSubmit,
+}: {
+  documentPassword: string
+  busyAction: string | null
+  onPasswordChange: (value: string) => void
+  onCancel: () => void
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <form
+        onSubmit={(event) => {
+          onSubmit(event).catch(() => {})
+        }}
+        className="w-[28rem] space-y-4 rounded-lg border border-zinc-700 bg-zinc-900 p-6"
+      >
+        <div>
+          <h2 className="text-lg font-medium text-zinc-100">Import Royal TSX</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Choose your `.rtsz` file next. Enter the document password only if the Royal document is
+            password-protected.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs text-zinc-400">Royal TSX Document Password</label>
+          <input
+            type="password"
+            value={documentPassword}
+            onChange={(event) => onPasswordChange(event.target.value)}
+            className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+            placeholder="Leave blank if the document has no password"
+            autoFocus
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busyAction === 'import-royal-tsx'}
+            className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busyAction === 'import-royal-tsx'}
+            className="rounded bg-zinc-100 px-4 py-2 text-sm text-zinc-900 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busyAction === 'import-royal-tsx' ? 'Importing...' : 'Choose File'}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }

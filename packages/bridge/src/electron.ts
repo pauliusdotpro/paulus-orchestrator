@@ -45,6 +45,7 @@ export function createElectronBridge(): Bridge {
       getOverview: () => api.appData.getOverview(),
       openDirectory: () => api.appData.openDirectory(),
       exportServers: () => api.appData.exportServers(),
+      importRoyalTsx: (documentPassword) => api.appData.importRoyalTsx(documentPassword),
       setPasswordStorageMode: (mode) => api.appData.setPasswordStorageMode(mode),
     },
     storage: {

@@ -63,6 +63,9 @@ export async function registerIPCHandlers(win: BrowserWindow): Promise<void> {
   ipcMain.handle('app-data:overview', () => appData.getOverview())
   ipcMain.handle('app-data:open-directory', () => appData.openDirectory())
   ipcMain.handle('app-data:export-servers', () => appData.exportServers())
+  ipcMain.handle('app-data:import-royal-tsx', (_, { documentPassword }) =>
+    appData.importRoyalTsx(documentPassword),
+  )
   ipcMain.handle('app-data:set-password-storage-mode', (_, mode) =>
     appData.setPasswordStorageMode(mode),
   )

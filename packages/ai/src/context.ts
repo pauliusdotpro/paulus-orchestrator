@@ -39,6 +39,8 @@ export function buildSystemPrompt(context: AIContext): string {
     `8. Be cautious with destructive operations (rm -rf, DROP, etc.) — flag them clearly before executing.`,
     `9. For multi-step tasks, explain the plan first, then propose commands one by one.`,
     `10. If the server is disconnected, tell the user to connect it in Paulus before you can inspect it.`,
+    `11. Default to the selected remote server for any ambiguous inspection request. Only switch to the local machine/workspace if the user explicitly says local, host machine, macOS, laptop, workspace, or current repo.`,
+    `12. For remote inspection, use paulus_exec_server_command. Do not use built-in Bash, terminal, shell, exec, or local runtime tools unless the user explicitly requested local execution.`,
     ``,
     `## Response pattern`,
     ``,

@@ -1,4 +1,4 @@
-import { execFileSync } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
 import { randomUUID } from 'crypto'
 import { tmpdir } from 'os'
 import type { AIEvent, AIModelOption } from '@paulus/shared'
@@ -7,10 +7,16 @@ import { AcpClient } from '../acp-client'
 import { buildSystemPrompt } from '../context'
 import { PaulusMcpServer } from '../paulus-mcp-server'
 import {
+  buildInspectionInstruction,
+  detectExecutionScope,
+  isLocalShellToolName,
+  isPaulusServerCommandToolName,
+  isPaulusToolName,
+} from '../execution-scope'
+import {
   buildGenericToolState,
   buildInvalidToolState,
   buildServerCommandToolState,
-  normalizePaulusToolName,
   toolStateEvent,
 } from '../tool-state'
 
@@ -91,6 +97,7 @@ export abstract class AcpBaseProvider implements AIProvider {
 
   spawn(prompt: string, context: AIContext, options: AIRunOptions): AIProcess {
     const systemPrompt = buildSystemPrompt(context)
+    const executionScope = detectExecutionScope(prompt)
     const client = this.createClient()
 
     // --- State ---
@@ -183,7 +190,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         }
         case 'tool_call': {
           const toolCall = this.extractToolCall(update)
-          if (toolCall && !this.isCommandTool(toolCall.toolName)) {
+          if (toolCall && !isPaulusServerCommandToolName(toolCall.toolName)) {
             const startedAt = new Date().toISOString()
             observedToolCalls.set(toolCall.id, {
               ...toolCall,
@@ -258,64 +265,74 @@ export abstract class AcpBaseProvider implements AIProvider {
       'shell',
       'exec',
     ]) {
-      client.onRequest(method, (params) => {
-        const toolName = normalizePaulusToolName(this.getToolName(method, params))
+      client.onRequest(method, (params): Promise<any> => {
+        const toolName = this.getToolName(method, params)
 
-        // Reject all non-Paulus tools — they would run locally, not on the remote server
-        if (!this.isPaulusTool(toolName) && !this.isCommandTool(toolName)) {
+        if (isPaulusServerCommandToolName(toolName)) {
+          return new Promise((resolve, reject) => {
+            const command = this.extractCommand(params)
+            const cmdId = randomUUID()
+            const startedAt = new Date().toISOString()
+
+            pendingToolCalls.set(cmdId, {
+              commandId: cmdId,
+              command,
+              startedAt,
+              resolve: (result) => {
+                resolve({
+                  stdout: result.stdout,
+                  stderr: result.stderr,
+                  exit_code: result.exitCode,
+                })
+              },
+              reject: (err) => {
+                resolve({
+                  stdout: '',
+                  stderr: `Rejected: ${err.message}`,
+                  exit_code: 1,
+                })
+              },
+            })
+
+            pushEvent(
+              toolStateEvent(
+                buildServerCommandToolState({
+                  id: cmdId,
+                  command,
+                  status: 'pending',
+                  startedAt,
+                  explanation: this.buildCommandExplanation(toolName),
+                }),
+              ),
+            )
+          })
+        }
+
+        if (executionScope === 'local' && isLocalShellToolName(toolName)) {
+          return this.executeLocalCommand(this.extractCommand(params), this.extractTimeout(params))
+        }
+
+        // Default ambiguous execution to the selected remote server, not the host machine.
+        if (!isPaulusServerCommandToolName(toolName)) {
           pushEvent(
             toolStateEvent(
               buildInvalidToolState({
                 id: randomUUID(),
                 toolName,
                 args: this.extractToolArgs(params),
-                error: `Tool "${toolName}" is not available. Use the paulus_exec_server_command MCP tool to run commands on the remote server.`,
+                error: `Tool "${toolName}" is not available for this remote-first request. Use the paulus_exec_server_command MCP tool to run commands on the selected server, or explicitly say you want the local machine.`,
                 metadata: { method },
               }),
             ),
           )
 
           return Promise.resolve({
-            error: `Tool "${toolName}" is not available. You MUST use the paulus_exec_server_command MCP tool to run commands on the remote server. Do not attempt to use built-in Bash, terminal, or shell tools.`,
+            error: `Tool "${toolName}" is not available for this remote-first request. Use the paulus_exec_server_command MCP tool to run commands on the selected server, or explicitly say you want the local machine.`,
           })
         }
 
-        return new Promise((resolve, reject) => {
-          const command = this.extractCommand(params)
-          const cmdId = randomUUID()
-          const startedAt = new Date().toISOString()
-
-          pendingToolCalls.set(cmdId, {
-            commandId: cmdId,
-            command,
-            startedAt,
-            resolve: (result) => {
-              resolve({
-                stdout: result.stdout,
-                stderr: result.stderr,
-                exit_code: result.exitCode,
-              })
-            },
-            reject: (err) => {
-              resolve({
-                stdout: '',
-                stderr: `Rejected: ${err.message}`,
-                exit_code: 1,
-              })
-            },
-          })
-
-          pushEvent(
-            toolStateEvent(
-              buildServerCommandToolState({
-                id: cmdId,
-                command,
-                status: 'pending',
-                startedAt,
-                explanation: this.buildCommandExplanation(toolName),
-              }),
-            ),
-          )
+        return Promise.resolve({
+          error: `Tool "${toolName}" could not be handled.`,
         })
       })
     }
@@ -330,9 +347,18 @@ export abstract class AcpBaseProvider implements AIProvider {
       const allowOption = this.findPermissionOption(permission, 'allow')
       const rejectOption = this.findPermissionOption(permission, 'reject')
 
-      // Only allow Paulus MCP tools — these route through SSH
-      const isPaulusTool = this.isPaulusTool(toolName)
+      // Default to remote-only unless the user explicitly requested local execution.
+      const isPaulusTool = isPaulusToolName(toolName)
       if (isPaulusTool && allowOption) {
+        return Promise.resolve({
+          outcome: {
+            outcome: 'selected',
+            optionId: allowOption.optionId,
+          },
+        })
+      }
+
+      if (executionScope === 'local' && isLocalShellToolName(toolName) && allowOption) {
         return Promise.resolve({
           outcome: {
             outcome: 'selected',
@@ -415,7 +441,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         }
 
         // 3. Build full prompt with conversation history
-        const inspectionInstruction = this.buildInspectionInstruction(prompt)
+        const inspectionInstruction = buildInspectionInstruction(prompt)
         const effectivePrompt = inspectionInstruction
           ? `${inspectionInstruction}\n\nUser request: ${prompt}`
           : prompt
@@ -582,40 +608,6 @@ export abstract class AcpBaseProvider implements AIProvider {
     return models
   }
 
-  /** Check if a tool name represents a command/shell execution tool */
-  protected isCommandTool(toolName: string): boolean {
-    const cmdTools = [
-      'paulus_exec_server_command',
-      'bash',
-      'shell',
-      'terminal',
-      'execute',
-      'run',
-      'command',
-      'exec',
-      'sh',
-      'Bash',
-      'Terminal',
-    ]
-    const normalized = toolName.toLowerCase()
-    return cmdTools.some((tool) => {
-      const candidate = tool.toLowerCase()
-      return normalized === candidate || normalized.includes(candidate)
-    })
-  }
-
-  protected isPaulusTool(toolName: string): boolean {
-    const normalized = toolName.toLowerCase()
-
-    return (
-      normalized.startsWith('paulus_') ||
-      normalized.includes('__paulus__') ||
-      normalized.includes('mcp__paulus') ||
-      normalized.includes('paulus_exec_server_command') ||
-      normalized.includes('paulus_get_server_context')
-    )
-  }
-
   private getToolName(method: string, params: any): string {
     if (method === 'tools/call') {
       return params?.name || params?.tool_name || ''
@@ -658,6 +650,22 @@ export abstract class AcpBaseProvider implements AIProvider {
     return JSON.stringify(input)
   }
 
+  private extractTimeout(params: any): number | undefined {
+    const input = params?.input || params?.arguments || params || {}
+    const timeout =
+      typeof input?.timeout === 'number'
+        ? input.timeout
+        : typeof params?.timeout === 'number'
+          ? params.timeout
+          : undefined
+
+    if (timeout === undefined || !Number.isFinite(timeout) || timeout <= 0) {
+      return undefined
+    }
+
+    return Math.min(timeout, 10 * 60 * 1000)
+  }
+
   private extractToolArgs(params: any): Record<string, unknown> {
     const input = params?.input || params?.arguments || params || {}
     if (input && typeof input === 'object' && !Array.isArray(input)) {
@@ -669,6 +677,43 @@ export abstract class AcpBaseProvider implements AIProvider {
 
   private buildCommandExplanation(toolName: string): string {
     return `AI wants Paulus to run a command on the selected server via ${toolName}`
+  }
+
+  private executeLocalCommand(
+    command: string,
+    timeout = 60_000,
+  ): Promise<{
+    stdout: string
+    stderr: string
+    exit_code: number
+  }> {
+    const shell = process.env.SHELL || '/bin/zsh'
+
+    return new Promise((resolve) => {
+      execFile(
+        shell,
+        ['-lc', command],
+        {
+          encoding: 'utf-8',
+          timeout,
+          maxBuffer: 20 * 1024 * 1024,
+          env: process.env,
+        },
+        (error, stdout, stderr) => {
+          const exitCode = typeof error?.code === 'number' ? error.code : error ? 1 : 0
+          const timeoutMessage =
+            error && 'killed' in error && error.killed
+              ? `\nCommand timed out after ${timeout}ms`
+              : ''
+
+          resolve({
+            stdout: stdout ?? '',
+            stderr: `${stderr ?? ''}${timeoutMessage}`.trim(),
+            exit_code: exitCode,
+          })
+        },
+      )
+    })
   }
 
   private stringifyToolResult(result: unknown): string {
@@ -766,24 +811,6 @@ export abstract class AcpBaseProvider implements AIProvider {
         Boolean(update?.is_error),
     }
   }
-
-  private buildInspectionInstruction(prompt: string): string | null {
-    const normalized = prompt.toLowerCase()
-
-    if (
-      /(what|which).*(linux|os|distro|distribution|kernel)/.test(normalized) ||
-      /(linux|os|distro|kernel).*(running|version)/.test(normalized)
-    ) {
-      return (
-        'MANDATORY TOOL USE FOR THIS REQUEST: ' +
-        'Call paulus_exec_server_command with exactly "cat /etc/os-release && uname -srmo" before any answer. ' +
-        'Do not answer from local runtime context. An answer without that tool result is invalid.'
-      )
-    }
-
-    return null
-  }
-
   private findPermissionOption(
     permission: any,
     kind: 'allow' | 'reject',

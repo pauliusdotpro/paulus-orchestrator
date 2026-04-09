@@ -21,3 +21,17 @@ export interface AppDataOverview {
   passwordStorageMode: PasswordStorageMode
   passwordStorageOptions: PasswordStorageModeOption[]
 }
+
+export interface RoyalTsxImportSkippedEntry {
+  name: string
+  reason: string
+}
+
+export interface RoyalTsxImportResult {
+  filePath: string
+  importedServerCount: number
+  savedPasswordCount: number
+  encryptedSecretCount: number
+  skippedServerCount: number
+  skippedServers: RoyalTsxImportSkippedEntry[]
+}

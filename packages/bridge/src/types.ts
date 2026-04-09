@@ -11,6 +11,7 @@ import type {
   AppSettings,
   AppDataOverview,
   PasswordStorageMode,
+  RoyalTsxImportResult,
   TerminalSessionState,
 } from '@paulus/shared'
 
@@ -70,6 +71,7 @@ export interface Bridge {
     getOverview(): Promise<AppDataOverview>
     openDirectory(): Promise<void>
     exportServers(): Promise<string | null>
+    importRoyalTsx(documentPassword: string): Promise<RoyalTsxImportResult | null>
     setPasswordStorageMode(mode: PasswordStorageMode): Promise<AppDataOverview>
   }
 

@@ -8,6 +8,7 @@ export interface ServerConfig {
   privateKeyPath?: string
   hasPassword?: boolean
   autoConnect?: boolean
+  color?: string
   tags?: string[]
   createdAt: string
   updatedAt: string

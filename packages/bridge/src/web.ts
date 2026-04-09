@@ -46,6 +46,7 @@ export function createWebBridge(): Bridge {
       getOverview: notImplemented,
       openDirectory: notImplemented,
       exportServers: notImplemented,
+      importRoyalTsx: notImplemented,
       setPasswordStorageMode: notImplemented,
     },
     storage: {

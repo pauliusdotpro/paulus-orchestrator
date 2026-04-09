@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ServerConfig } from '@paulus/shared'
 import { useBridge } from '../../hooks/use-bridge'
 import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
+import { ServerColorPicker } from './server-color-picker'
 
 type ServerSettingsTab = 'general' | 'authentication' | 'advanced' | 'danger'
 
@@ -32,6 +33,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
     privateKeyPath: server.privateKeyPath ?? '',
     password: '',
     autoConnect: server.autoConnect ?? false,
+    color: server.color,
   }))
   const [clearSavedPassword, setClearSavedPassword] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -62,6 +64,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
           authMethod: form.authMethod,
           privateKeyPath: form.authMethod === 'key' ? form.privateKeyPath || undefined : undefined,
           autoConnect: autoConnectAvailable ? form.autoConnect : false,
+          color: form.color,
           hasPassword: form.authMethod === 'password' ? server.hasPassword : false,
         },
         password,
@@ -200,8 +203,17 @@ function GeneralTab({
     host: string
     port: number
     username: string
+    color: string | undefined
   }
-  onChange: (patch: Partial<{ name: string; host: string; port: number; username: string }>) => void
+  onChange: (
+    patch: Partial<{
+      name: string
+      host: string
+      port: number
+      username: string
+      color: string | undefined
+    }>,
+  ) => void
 }) {
   return (
     <section className="space-y-5">
@@ -219,6 +231,11 @@ function GeneralTab({
           onChange={(e) => onChange({ name: e.target.value })}
           className="w-full max-w-md px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-xs text-zinc-500 mb-2">Color</label>
+        <ServerColorPicker value={form.color} onChange={(color) => onChange({ color })} />
       </div>
 
       <div className="grid grid-cols-3 gap-3 max-w-md">

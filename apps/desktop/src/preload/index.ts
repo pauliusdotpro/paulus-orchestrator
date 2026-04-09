@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getOverview: () => ipcRenderer.invoke('app-data:overview'),
     openDirectory: () => ipcRenderer.invoke('app-data:open-directory'),
     exportServers: () => ipcRenderer.invoke('app-data:export-servers'),
+    importRoyalTsx: (documentPassword: string) =>
+      ipcRenderer.invoke('app-data:import-royal-tsx', { documentPassword }),
     setPasswordStorageMode: (mode: string) =>
       ipcRenderer.invoke('app-data:set-password-storage-mode', mode),
   },

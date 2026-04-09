@@ -97,6 +97,13 @@ export function ServerList({
             className={`px-2 py-2 rounded cursor-pointer select-none ${
               isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
             }`}
+            style={
+              server.color
+                ? {
+                    backgroundImage: `linear-gradient(${server.color}26, ${server.color}26)`,
+                  }
+                : undefined
+            }
           >
             <div className="flex items-start gap-2 min-w-0">
               <div

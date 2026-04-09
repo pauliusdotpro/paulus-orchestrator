@@ -8,7 +8,7 @@ import {
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react'
 import type { AISessionConfig, AIProviderType, AIToolKind, AIToolStatus } from '@paulus/shared'
-import { useChatStore, useSettingsStore } from '../../stores'
+import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import { useAssistantRuntime } from '../../hooks/use-assistant-runtime'
 import { MarkdownText } from './markdown-text'
@@ -163,9 +163,17 @@ function AssistantMessagePending() {
 }
 
 function Composer({ serverId, isConnected }: { serverId: string; isConnected: boolean }) {
+  const serverColor = useServerStore((s) => s.servers.find((srv) => srv.id === serverId)?.color)
+  const tintStyle = serverColor
+    ? { backgroundImage: `linear-gradient(${serverColor}1f, ${serverColor}1f)` }
+    : undefined
+
   return (
     <ComposerPrimitive.Root className="border-t border-zinc-800/60 bg-zinc-900/50 px-4 py-3">
-      <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/60 shadow-lg shadow-black/20 focus-within:border-zinc-600/70 transition-colors">
+      <div
+        className="rounded-xl border border-zinc-700/50 bg-zinc-800/60 shadow-lg shadow-black/20 focus-within:border-zinc-600/70 transition-colors"
+        style={tintStyle}
+      >
         <ComposerPrimitive.Input
           autoFocus={isConnected}
           disabled={!isConnected}
