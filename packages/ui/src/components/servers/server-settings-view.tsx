@@ -4,6 +4,7 @@ import { useBridge } from '../../hooks/use-bridge'
 import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
 import { ServerColorPicker } from './server-color-picker'
 import { CategoryPicker } from './category-picker'
+import { maskHost, maskPort, maskUsername } from '../../lib/anonymize'
 
 type ServerSettingsTab = 'general' | 'authentication' | 'advanced' | 'danger'
 
@@ -25,6 +26,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
   const categories = useServerStore((s) => s.categories)
   const removeSessionsForServer = useChatStore((s) => s.removeSessionsForServer)
   const closeSettingsView = useSettingsStore((s) => s.closeSettingsView)
+  const anonymousMode = useSettingsStore((s) => s.settings?.anonymousMode ?? false)
   const [activeTab, setActiveTab] = useState<ServerSettingsTab>('general')
   const [form, setForm] = useState(() => ({
     name: server.name,
@@ -104,7 +106,9 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">Server Settings</h2>
           <p className="text-xs text-zinc-500 mt-1">
-            {server.username}@{server.host}:{server.port}
+            {anonymousMode ? maskUsername(server.username) : server.username}@
+            {anonymousMode ? maskHost(server.host) : server.host}:
+            {anonymousMode ? maskPort(server.port) : server.port}
           </p>
         </div>
         <button

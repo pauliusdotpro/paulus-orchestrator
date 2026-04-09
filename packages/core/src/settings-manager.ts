@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sidebarCollapsed: false,
   panelLayout: 'split',
   terminalWidth: 480,
+  anonymousMode: false,
 }
 
 export class SettingsManager {
@@ -25,19 +26,23 @@ export class SettingsManager {
 
   async get(): Promise<AppSettings> {
     if (!this.settings) {
-      this.settings = await this.storage.get<AppSettings>(SETTINGS_KEY)
+      const stored = await this.storage.get<AppSettings>(SETTINGS_KEY)
       const hasValidProviderList =
-        this.settings?.providers.every((provider) => isAIProviderType(provider.type)) ?? false
-      const hasValidActiveProvider = isAIProviderType(this.settings?.activeProvider)
+        stored?.providers.every((provider) => isAIProviderType(provider.type)) ?? false
+      const hasValidActiveProvider = isAIProviderType(stored?.activeProvider)
 
       if (
-        !this.settings ||
+        !stored ||
         !hasValidActiveProvider ||
         !hasValidProviderList ||
-        this.settings.providers.length !== AI_PROVIDER_TYPES.length
+        stored.providers.length !== AI_PROVIDER_TYPES.length
       ) {
         this.settings = { ...DEFAULT_SETTINGS }
         await this.storage.set(SETTINGS_KEY, this.settings)
+      } else {
+        // Merge with defaults so new fields introduced after the settings file
+        // was first written get populated instead of remaining undefined.
+        this.settings = { ...DEFAULT_SETTINGS, ...stored }
       }
     }
 

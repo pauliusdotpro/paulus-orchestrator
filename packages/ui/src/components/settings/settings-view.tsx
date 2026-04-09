@@ -291,7 +291,9 @@ export function SettingsView({ onClose }: SettingsViewProps) {
         {activeTab === 'appearance' && (
           <AppearanceTab
             theme={settings.theme}
+            anonymousMode={settings.anonymousMode ?? false}
             onThemeChange={(theme) => updateSettings(bridge, { theme })}
+            onAnonymousModeChange={(anonymousMode) => updateSettings(bridge, { anonymousMode })}
           />
         )}
 
@@ -457,13 +459,17 @@ function AIProviderTab({
 
 function AppearanceTab({
   theme,
+  anonymousMode,
   onThemeChange,
+  onAnonymousModeChange,
 }: {
   theme: 'light' | 'dark' | 'system'
+  anonymousMode: boolean
   onThemeChange: (theme: 'light' | 'dark' | 'system') => void
+  onAnonymousModeChange: (anonymousMode: boolean) => void
 }) {
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       <div>
         <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Appearance</h3>
         <p className="text-sm text-zinc-500 mt-1">Control the app theme.</p>
@@ -483,6 +489,30 @@ function AppearanceTab({
             {option}
           </button>
         ))}
+      </div>
+
+      <div className="pt-2 border-t border-zinc-800">
+        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Privacy</h3>
+        <p className="text-sm text-zinc-500 mt-1">
+          Useful for screen sharing, demos, or recordings.
+        </p>
+
+        <label className="mt-4 flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={anonymousMode}
+            onChange={(e) => onAnonymousModeChange(e.target.checked)}
+            className="mt-0.5 rounded border-zinc-600 bg-zinc-800"
+          />
+          <div>
+            <div className="text-sm text-zinc-200">Anonymous mode</div>
+            <div className="text-xs text-zinc-500 mt-0.5">
+              Hide sensitive connection details — host, IP, username, and port — by masking them
+              with asterisks (e.g. <span className="font-mono">***.***.***.***</span>). Your server
+              configuration is unchanged; only the display is masked.
+            </div>
+          </div>
+        </label>
       </div>
     </section>
   )

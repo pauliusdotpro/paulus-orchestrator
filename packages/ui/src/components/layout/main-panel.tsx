@@ -4,6 +4,7 @@ import { ChatView } from '../chat/chat-view'
 import { TerminalConsole } from '../terminal/terminal-console'
 import { SettingsView } from '../settings/settings-view'
 import { ServerSettingsView } from '../servers/server-settings-view'
+import { maskHost, maskPort, maskUsername } from '../../lib/anonymize'
 
 const MIN_TERMINAL_WIDTH = 280
 const MAX_TERMINAL_WIDTH = 900
@@ -15,6 +16,7 @@ export function MainPanel() {
   const activeView = useSettingsStore((s) => s.activeView)
   const editingServerId = useSettingsStore((s) => s.editingServerId)
   const closeSettingsView = useSettingsStore((s) => s.closeSettingsView)
+  const anonymousMode = useSettingsStore((s) => s.settings?.anonymousMode ?? false)
   const panelLayout = useLayoutStore((s) => s.panelLayout)
   const setPanelLayout = useLayoutStore((s) => s.setPanelLayout)
   const terminalWidth = useLayoutStore((s) => s.terminalWidth)
@@ -150,7 +152,9 @@ export function MainPanel() {
         <div>
           <span className="text-sm font-medium text-zinc-100">{server.name}</span>
           <span className="text-xs text-zinc-500 ml-2">
-            {server.username}@{server.host}:{server.port}
+            {anonymousMode ? maskUsername(server.username) : server.username}@
+            {anonymousMode ? maskHost(server.host) : server.host}:
+            {anonymousMode ? maskPort(server.port) : server.port}
           </span>
         </div>
         <div className="flex-1" />

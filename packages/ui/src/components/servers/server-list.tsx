@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEFAULT_SERVER_CATEGORY, type ServerConfig, type ServerConnection } from '@paulus/shared'
+import { useSettingsStore } from '../../stores'
+import { maskHost } from '../../lib/anonymize'
 
 interface ServerListProps {
   servers: ServerConfig[]
@@ -48,6 +50,20 @@ export function ServerList({
   const [draggedServerId, setDraggedServerId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set())
+  const anonymousMode = useSettingsStore((s) => s.settings?.anonymousMode ?? false)
+
+  const toggleCategoryCollapsed = (name: string) => {
+    setCollapsedCategories((current) => {
+      const next = new Set(current)
+      if (next.has(name)) {
+        next.delete(name)
+      } else {
+        next.add(name)
+      }
+      return next
+    })
+  }
 
   const categoryGroups = buildCategoryGroups(servers, categories)
   const categoryNames = categoryGroups.map((group) => group.name)
@@ -90,10 +106,6 @@ export function ServerList({
     }
   }, [contextMenu])
 
-  if (servers.length === 0 && categoryGroups.length === 0) {
-    return <p className="text-xs text-zinc-600 px-2 py-4 text-center">No servers yet</p>
-  }
-
   const handleDrop = (targetCategory: string, beforeServerId?: string) => {
     if (!draggedServerId) {
       return
@@ -113,12 +125,26 @@ export function ServerList({
     ? servers.find((candidate) => candidate.id === contextMenu.serverId)
     : null
 
+  // Hide the default "Uncategorized" section when it has no servers so users
+  // aren't left with a dangling empty drop zone. It still shows up in the
+  // context menu's "Move to" list (which uses `categoryNames`), so servers
+  // can be moved back into it on demand, and it re-appears here automatically
+  // once it has any servers.
+  const visibleCategoryGroups = categoryGroups.filter(
+    (group) => group.name !== DEFAULT_SERVER_CATEGORY || group.servers.length > 0,
+  )
+
+  if (visibleCategoryGroups.length === 0) {
+    return <p className="text-xs text-zinc-600 px-2 py-4 text-center">No servers yet</p>
+  }
+
   return (
     <div className="mt-1 space-y-3">
-      {categoryGroups.map((group) => {
+      {visibleCategoryGroups.map((group) => {
         const isCategoryDropTarget =
           dropTarget?.category === group.name && dropTarget.beforeServerId == null
         const isRenaming = renamingCategory === group.name
+        const isCollapsed = collapsedCategories.has(group.name)
 
         return (
           <section
@@ -143,6 +169,8 @@ export function ServerList({
               name={group.name}
               count={group.servers.length}
               isRenaming={isRenaming}
+              isCollapsed={isCollapsed}
+              onToggleCollapsed={() => toggleCategoryCollapsed(group.name)}
               onStartRename={() => setRenamingCategory(group.name)}
               onCancelRename={() => setRenamingCategory(null)}
               onCommitRename={async (nextName) => {
@@ -156,119 +184,125 @@ export function ServerList({
               }}
             />
 
-            <div className="space-y-0.5">
-              {group.servers.length === 0 && (
-                <EmptyCategorySlot highlighted={isCategoryDropTarget} />
-              )}
-              {group.servers.map((server) => {
-                const connection = connections[server.id]
-                const isActive = server.id === activeServerId
-                const isConnected = connection?.status === 'connected'
-                const isConnecting = connection?.status === 'connecting'
-                const isBeforeDropTarget = dropTarget?.beforeServerId === server.id
+            {!isCollapsed && (
+              <div className="space-y-0.5">
+                {group.servers.length === 0 && (
+                  <EmptyCategorySlot highlighted={isCategoryDropTarget} />
+                )}
+                {group.servers.map((server) => {
+                  const connection = connections[server.id]
+                  const isActive = server.id === activeServerId
+                  const isConnected = connection?.status === 'connected'
+                  const isConnecting = connection?.status === 'connecting'
+                  const isBeforeDropTarget = dropTarget?.beforeServerId === server.id
 
-                return (
-                  <div key={server.id}>
-                    {isBeforeDropTarget && <DropIndicator />}
-                    <div
-                      draggable
-                      onDragStart={(event) => {
-                        event.dataTransfer.effectAllowed = 'move'
-                        event.dataTransfer.setData('text/plain', server.id)
-                        setContextMenu(null)
-                        setDraggedServerId(server.id)
-                        setDropTarget(null)
-                      }}
-                      onDragEnd={() => {
-                        setDraggedServerId(null)
-                        setDropTarget(null)
-                      }}
-                      onDragOver={(event) => {
-                        if (!draggedServerId || draggedServerId === server.id) return
-                        event.preventDefault()
-                        event.stopPropagation()
-                        event.dataTransfer.dropEffect = 'move'
-                        setDropTarget({ category: group.name, beforeServerId: server.id })
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        handleDrop(group.name, server.id)
-                      }}
-                      onClick={() => {
-                        setContextMenu(null)
-                        onSelect(server.id)
-                      }}
-                      onDoubleClick={() => {
-                        if (!isConnected && !isConnecting) {
-                          onConnect(server.id)
+                  return (
+                    <div key={server.id}>
+                      {isBeforeDropTarget && <DropIndicator />}
+                      <div
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData('text/plain', server.id)
+                          setContextMenu(null)
+                          setDraggedServerId(server.id)
+                          setDropTarget(null)
+                        }}
+                        onDragEnd={() => {
+                          setDraggedServerId(null)
+                          setDropTarget(null)
+                        }}
+                        onDragOver={(event) => {
+                          if (!draggedServerId || draggedServerId === server.id) return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          event.dataTransfer.dropEffect = 'move'
+                          setDropTarget({ category: group.name, beforeServerId: server.id })
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleDrop(group.name, server.id)
+                        }}
+                        onClick={() => {
+                          setContextMenu(null)
+                          onSelect(server.id)
+                        }}
+                        onDoubleClick={() => {
+                          if (!isConnected && !isConnecting) {
+                            onConnect(server.id)
+                          }
+                        }}
+                        onContextMenu={(event) => {
+                          event.preventDefault()
+                          onSelect(server.id)
+                          openContextMenu(server.id, event.clientX, event.clientY)
+                        }}
+                        className={`cursor-pointer select-none rounded px-2 py-2 ${
+                          isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                        } ${draggedServerId === server.id ? 'opacity-50' : ''}`}
+                        style={
+                          server.color
+                            ? {
+                                backgroundImage: `linear-gradient(${server.color}26, ${server.color}26)`,
+                              }
+                            : undefined
                         }
-                      }}
-                      onContextMenu={(event) => {
-                        event.preventDefault()
-                        onSelect(server.id)
-                        openContextMenu(server.id, event.clientX, event.clientY)
-                      }}
-                      className={`cursor-pointer select-none rounded px-2 py-2 ${
-                        isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
-                      } ${draggedServerId === server.id ? 'opacity-50' : ''}`}
-                      style={
-                        server.color
-                          ? {
-                              backgroundImage: `linear-gradient(${server.color}26, ${server.color}26)`,
-                            }
-                          : undefined
-                      }
-                    >
-                      <div className="flex min-w-0 items-start gap-2">
-                        <div
-                          className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                            isConnected
-                              ? 'bg-emerald-400'
-                              : connection?.status === 'connecting'
-                                ? 'bg-yellow-400'
-                                : connection?.status === 'error'
-                                  ? 'bg-red-400'
-                                  : 'bg-zinc-600'
-                          }`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm leading-5 text-zinc-200">{server.name}</p>
-                          <p className="truncate text-xs text-zinc-500">{server.host}</p>
-                        </div>
-                        <button
-                          type="button"
-                          aria-label={`Open actions for ${server.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            onSelect(server.id)
-                            const rect = event.currentTarget.getBoundingClientRect()
-                            openContextMenu(server.id, rect.right - 8, rect.bottom + 4)
-                          }}
-                          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
+                      >
+                        <div className="flex min-w-0 items-start gap-2">
+                          <div
+                            className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+                              isConnected
+                                ? 'bg-emerald-400'
+                                : connection?.status === 'connecting'
+                                  ? 'bg-yellow-400'
+                                  : connection?.status === 'error'
+                                    ? 'bg-red-400'
+                                    : 'bg-zinc-600'
+                            }`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm leading-5 text-zinc-200">
+                              {server.name}
+                            </p>
+                            <p className="truncate text-xs text-zinc-500">
+                              {anonymousMode ? maskHost(server.host) : server.host}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Open actions for ${server.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              onSelect(server.id)
+                              const rect = event.currentTarget.getBoundingClientRect()
+                              openContextMenu(server.id, rect.right - 8, rect.bottom + 4)
+                            }}
+                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 6.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={1.5}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 6.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
 
-              {isCategoryDropTarget && group.servers.length > 0 && <DropIndicator />}
-            </div>
+                {isCategoryDropTarget && group.servers.length > 0 && <DropIndicator />}
+              </div>
+            )}
           </section>
         )
       })}
@@ -345,6 +379,8 @@ function CategoryHeader({
   name,
   count,
   isRenaming,
+  isCollapsed,
+  onToggleCollapsed,
   onStartRename,
   onCancelRename,
   onCommitRename,
@@ -353,6 +389,8 @@ function CategoryHeader({
   name: string
   count: number
   isRenaming: boolean
+  isCollapsed: boolean
+  onToggleCollapsed: () => void
   onStartRename: () => void
   onCancelRename: () => void
   onCommitRename: (nextName: string) => void | Promise<void>
@@ -405,16 +443,36 @@ function CategoryHeader({
   }
 
   return (
-    <div className="group flex items-center justify-between gap-2 px-2 py-1.5">
+    <div className="group flex items-center justify-between gap-1 px-1 py-1.5">
       <button
         type="button"
+        onClick={onToggleCollapsed}
         onDoubleClick={() => {
           if (!isDefaultCategory) onStartRename()
         }}
-        className="min-w-0 flex-1 cursor-default truncate text-left text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500"
-        title={isDefaultCategory ? name : `${name} — double-click to rename`}
+        className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-300"
+        title={
+          isDefaultCategory
+            ? `${name} — click to ${isCollapsed ? 'expand' : 'collapse'}`
+            : `${name} — click to ${isCollapsed ? 'expand' : 'collapse'}, double-click to rename`
+        }
+        aria-expanded={!isCollapsed}
       >
-        {name}
+        <svg
+          className={`h-3 w-3 flex-shrink-0 text-zinc-500 transition-transform ${
+            isCollapsed ? '-rotate-90' : ''
+          }`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <span className="truncate">{name}</span>
       </button>
       <div className="flex items-center gap-1">
         <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-500">
