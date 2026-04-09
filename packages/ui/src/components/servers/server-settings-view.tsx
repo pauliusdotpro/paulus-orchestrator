@@ -402,8 +402,8 @@ function AdvancedTab({
         </p>
       ) : (
         <p className="text-xs text-zinc-500">
-          Launch auto-connect is only available for SSH key authentication. Password-based
-          servers require manual connect so the OS keychain prompt never appears on app open.
+          Launch auto-connect is only available for SSH key authentication. Password-based servers
+          require manual connect so the OS keychain prompt never appears on app open.
         </p>
       )}
     </section>
