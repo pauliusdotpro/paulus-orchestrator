@@ -1,7 +1,7 @@
 {
   "name": "@paulus/desktop",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "Open-source, local-first, AI-first server manager desktop app",
   "homepage": "https://github.com/pauliusdotpro/paulus-orchestrator",
   "author": {
