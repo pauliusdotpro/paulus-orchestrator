@@ -78,12 +78,21 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
 
   useEffect(() => {
     const unsub = bridge.ai.onEvent((event) => {
-      if (event.sessionId !== sessionId || event.type !== 'command_running') return
+      if (
+        event.sessionId !== sessionId ||
+        event.type !== 'tool_state' ||
+        event.tool.kind !== 'server-command' ||
+        event.tool.status !== 'running' ||
+        !event.tool.command
+      ) {
+        return
+      }
+
       setLines((prev) => [
         ...prev,
         {
           id: ++lineId,
-          text: `$ ${event.command}`,
+          text: `$ ${event.tool.command}`,
           type: 'stdin',
         },
       ])

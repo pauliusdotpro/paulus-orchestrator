@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerIPCHandlers } from './ipc'
 import { initLogger } from './logger'
-import { syncDesktopShellPath } from './shell-env'
+import { syncDesktopShellEnv } from './shell-env'
 
 const isDev = !app.isPackaged
 
@@ -49,7 +49,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
 app.whenReady().then(async () => {
   if (app.isPackaged) {
-    syncDesktopShellPath()
+    syncDesktopShellEnv()
   }
 
   await createWindow()

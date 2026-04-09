@@ -41,9 +41,44 @@ export interface TerminalSessionState {
   history: string[]
 }
 
+export type AIToolKind = 'server-command' | 'tool' | 'invalid'
+export type AIToolStatus = 'pending' | 'running' | 'completed' | 'error' | 'rejected'
+
+export interface AITextPreview {
+  text: string
+  truncated: boolean
+  omittedCharacters: number
+}
+
+export interface AICommandToolOutput {
+  exitCode: number
+  stdout: AITextPreview
+  stderr: AITextPreview
+}
+
+export interface AIToolState {
+  id: string
+  toolName: string
+  kind: AIToolKind
+  status: AIToolStatus
+  args: Record<string, unknown>
+  argsText: string
+  title?: string
+  command?: string
+  explanation?: string
+  result?: unknown
+  isError?: boolean
+  error?: string
+  output?: AICommandToolOutput
+  metadata?: Record<string, unknown>
+  startedAt?: string
+  endedAt?: string
+}
+
 export type AIEvent =
   | { type: 'text'; text: string }
   | { type: 'thinking'; text: string }
+  | { type: 'tool_state'; tool: AIToolState }
   | {
       type: 'tool_call'
       id: string
@@ -79,6 +114,7 @@ export interface AISession {
   messages: AIMessage[]
   provider: AIProviderType
   model: string | null
+  yoloMode: boolean
   createdAt: string
   updatedAt: string
 }
@@ -86,4 +122,5 @@ export interface AISession {
 export interface AISessionConfig {
   provider: AIProviderType
   model: string | null
+  yoloMode: boolean
 }

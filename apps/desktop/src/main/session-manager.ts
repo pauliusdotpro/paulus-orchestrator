@@ -34,6 +34,7 @@ export class SessionManager {
       messages: [],
       provider: config.provider,
       model: config.model,
+      yoloMode: config.yoloMode,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -50,6 +51,7 @@ export class SessionManager {
     const session = await this.get(sessionId)
     session.provider = config.provider
     session.model = config.model
+    session.yoloMode = config.yoloMode
     session.updatedAt = new Date().toISOString()
     await this.save(session)
     return session
@@ -71,8 +73,13 @@ export class SessionManager {
       ? session.provider
       : DEFAULT_AI_PROVIDER
     const normalizedModel = typeof session.model === 'string' ? session.model : null
+    const normalizedYoloMode = session.yoloMode === true
 
-    if (normalizedProvider === session.provider && normalizedModel === session.model) {
+    if (
+      normalizedProvider === session.provider &&
+      normalizedModel === session.model &&
+      normalizedYoloMode === session.yoloMode
+    ) {
       return session
     }
 
@@ -80,6 +87,7 @@ export class SessionManager {
       ...session,
       provider: normalizedProvider,
       model: normalizedModel,
+      yoloMode: normalizedYoloMode,
     }
     await this.save(normalizedSession)
     return normalizedSession

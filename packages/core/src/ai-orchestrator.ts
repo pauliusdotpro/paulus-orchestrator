@@ -1,7 +1,13 @@
 import { randomUUID } from 'crypto'
 import type { AIEvent, AIMessage, AIModelOption, AIProviderType } from '@paulus/shared'
 import type { AIProcess } from '@paulus/ai'
-import { createProvider } from '@paulus/ai'
+import {
+  buildServerCommandToolState,
+  createCommandToolOutput,
+  createProvider,
+  formatCommandResultForModel,
+  toolStateEvent,
+} from '@paulus/ai'
 import type { RuntimeEventSink } from './events'
 import type { ServerManager } from './ssh/server-manager'
 import type { SessionManager } from './session-manager'
@@ -13,6 +19,7 @@ interface PendingCommand {
   command: string
   serverId: string
   sessionId: string
+  startedAt: string
 }
 
 interface ActiveRun {
@@ -42,6 +49,7 @@ export class AIOrchestrator {
     const session = await this.sessionManager.get(sessionId)
     const serverConfig = this.serverManager.getConfig(serverId)
     if (!serverConfig) throw new Error(`Server not found: ${serverId}`)
+    const yoloMode = session.yoloMode === true
 
     const userMessage: AIMessage = {
       id: randomUUID(),
@@ -87,16 +95,30 @@ export class AIOrchestrator {
         for await (const event of process.events) {
           this.emitAIEvent(sessionId, event)
 
-          if (event.type === 'command_proposal') {
-            this.pendingCommands.set(event.id, {
-              id: event.id,
-              command: event.command,
+          if (
+            event.type === 'tool_state' &&
+            event.tool.kind === 'server-command' &&
+            event.tool.status === 'pending' &&
+            event.tool.command
+          ) {
+            this.pendingCommands.set(event.tool.id, {
+              id: event.tool.id,
+              command: event.tool.command,
               serverId,
               sessionId,
+              startedAt: event.tool.startedAt ?? new Date().toISOString(),
             })
+
+            if (yoloMode) {
+              void this.approve(sessionId, event.tool.id)
+            }
           }
         }
       } finally {
+        this.failPendingCommandsForSession(
+          sessionId,
+          'AI run ended before command execution completed',
+        )
         const run = this.activeRuns.get(sessionId)
         this.activeRuns.delete(sessionId)
 
@@ -125,11 +147,17 @@ export class AIOrchestrator {
     if (!pending) throw new Error(`No pending command: ${commandId}`)
 
     this.pendingCommands.delete(commandId)
-    this.emitAIEvent(sessionId, {
-      type: 'command_running',
-      id: commandId,
-      command: pending.command,
-    })
+    this.emitAIEvent(
+      sessionId,
+      toolStateEvent(
+        buildServerCommandToolState({
+          id: commandId,
+          command: pending.command,
+          status: 'running',
+          startedAt: pending.startedAt,
+        }),
+      ),
+    )
 
     try {
       await this.terminalSessions.recordCommand(sessionId, pending.command)
@@ -138,47 +166,56 @@ export class AIOrchestrator {
         sessionId,
         pending.command,
       )
-      if (result.stdout) {
-        this.emitAIEvent(sessionId, {
-          type: 'command_output',
-          id: commandId,
-          data: result.stdout,
-          stream: 'stdout',
-        })
-      }
-
-      if (result.stderr) {
-        this.emitAIEvent(sessionId, {
-          type: 'command_output',
-          id: commandId,
-          data: result.stderr,
-          stream: 'stderr',
-        })
-      }
-
-      this.emitAIEvent(sessionId, {
-        type: 'command_done',
-        id: commandId,
-        exitCode: result.exitCode,
-      })
+      this.emitAIEvent(
+        sessionId,
+        toolStateEvent(
+          buildServerCommandToolState({
+            id: commandId,
+            command: pending.command,
+            status: 'completed',
+            startedAt: pending.startedAt,
+            endedAt: new Date().toISOString(),
+            output: createCommandToolOutput(result),
+          }),
+        ),
+      )
 
       const run = this.activeRuns.get(sessionId)
       if (run) {
-        run.process.write(
-          `Command completed (exit ${result.exitCode}):\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`,
-        )
+        run.process.write(formatCommandResultForModel(result))
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await this.terminalSessions.appendSystem(sessionId, `Error: ${message}`)
-      this.emitAIEvent(sessionId, {
-        type: 'error',
-        message: `Command failed: ${message}`,
-      })
+      this.emitAIEvent(
+        sessionId,
+        toolStateEvent(
+          buildServerCommandToolState({
+            id: commandId,
+            command: pending.command,
+            status: 'error',
+            startedAt: pending.startedAt,
+            endedAt: new Date().toISOString(),
+            error: `Command failed: ${message}`,
+          }),
+        ),
+      )
+
+      const run = this.activeRuns.get(sessionId)
+      if (run) {
+        run.process.write(
+          formatCommandResultForModel({
+            exitCode: 1,
+            stdout: '',
+            stderr: `Command failed: ${message}`,
+          }),
+        )
+      }
     }
   }
 
   async reject(sessionId: string, commandId: string): Promise<void> {
+    const pending = this.pendingCommands.get(commandId)
     this.pendingCommands.delete(commandId)
 
     const run = this.activeRuns.get(sessionId)
@@ -186,18 +223,47 @@ export class AIOrchestrator {
       run.process.write('Command rejected by user')
     }
 
-    this.emitAIEvent(sessionId, {
-      type: 'command_done',
-      id: commandId,
-      exitCode: -1,
-    })
+    this.emitAIEvent(
+      sessionId,
+      toolStateEvent(
+        buildServerCommandToolState({
+          id: commandId,
+          command: pending?.command ?? '',
+          status: 'rejected',
+          startedAt: pending?.startedAt,
+          endedAt: new Date().toISOString(),
+          error: 'Command rejected by user',
+        }),
+      ),
+    )
   }
 
   kill(sessionId: string): void {
     const run = this.activeRuns.get(sessionId)
     if (run) {
+      this.failPendingCommandsForSession(sessionId, 'AI run was killed')
       run.process.kill()
       this.activeRuns.delete(sessionId)
+    }
+  }
+
+  private failPendingCommandsForSession(sessionId: string, reason: string): void {
+    for (const [commandId, pending] of this.pendingCommands) {
+      if (pending.sessionId !== sessionId) continue
+      this.pendingCommands.delete(commandId)
+      this.emitAIEvent(
+        sessionId,
+        toolStateEvent(
+          buildServerCommandToolState({
+            id: commandId,
+            command: pending.command,
+            status: 'error',
+            startedAt: pending.startedAt,
+            endedAt: new Date().toISOString(),
+            error: reason,
+          }),
+        ),
+      )
     }
   }
 

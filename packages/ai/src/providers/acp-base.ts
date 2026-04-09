@@ -6,11 +6,28 @@ import type { AIProvider, AIProcess, AIContext, AIRunOptions } from '../provider
 import { AcpClient } from '../acp-client'
 import { buildSystemPrompt } from '../context'
 import { PaulusMcpServer } from '../paulus-mcp-server'
+import {
+  buildGenericToolState,
+  buildInvalidToolState,
+  buildServerCommandToolState,
+  normalizePaulusToolName,
+  toolStateEvent,
+} from '../tool-state'
 
 interface PendingToolCall {
   commandId: string
+  command: string
+  startedAt: string
   resolve: (result: { stdout: string; stderr: string; exitCode: number }) => void
   reject: (err: Error) => void
+}
+
+interface ObservedToolCall {
+  toolName: string
+  args: Record<string, unknown>
+  argsText: string
+  title?: string
+  startedAt: string
 }
 
 /**
@@ -78,6 +95,7 @@ export abstract class AcpBaseProvider implements AIProvider {
 
     // --- State ---
     const pendingToolCalls = new Map<string, PendingToolCall>()
+    const observedToolCalls = new Map<string, ObservedToolCall>()
     const eventQueue: AIEvent[] = []
     let eventResolve: (() => void) | null = null
     let finished = false
@@ -87,20 +105,28 @@ export abstract class AcpBaseProvider implements AIProvider {
       executeCommand: async (command) => {
         return new Promise((resolve, reject) => {
           const cmdId = randomUUID()
+          const startedAt = new Date().toISOString()
 
           pendingToolCalls.set(cmdId, {
             commandId: cmdId,
+            command,
+            startedAt,
             resolve,
             reject,
           })
 
-          pushEvent({
-            type: 'command_proposal',
-            id: cmdId,
-            command,
-            explanation:
-              'AI wants Paulus to run a command on the selected server via paulus_exec_server_command',
-          })
+          pushEvent(
+            toolStateEvent(
+              buildServerCommandToolState({
+                id: cmdId,
+                command,
+                status: 'pending',
+                startedAt,
+                explanation:
+                  'AI wants Paulus to run a command on the selected server via paulus_exec_server_command',
+              }),
+            ),
+          )
         })
       },
     })
@@ -113,8 +139,29 @@ export abstract class AcpBaseProvider implements AIProvider {
       }
     }
 
-    function finish(): void {
+    function failPendingToolCalls(reason: string): void {
+      const endedAt = new Date().toISOString()
+      for (const [cmdId, pending] of pendingToolCalls) {
+        pushEvent(
+          toolStateEvent(
+            buildServerCommandToolState({
+              id: cmdId,
+              command: pending.command,
+              status: 'error',
+              startedAt: pending.startedAt,
+              endedAt,
+              error: reason,
+            }),
+          ),
+        )
+        pending.reject(new Error(reason))
+      }
+      pendingToolCalls.clear()
+    }
+
+    function finish(reason = 'Tool execution aborted'): void {
       if (!finished) {
+        failPendingToolCalls(reason)
         finished = true
         pushEvent({ type: 'done' })
       }
@@ -137,26 +184,52 @@ export abstract class AcpBaseProvider implements AIProvider {
         case 'tool_call': {
           const toolCall = this.extractToolCall(update)
           if (toolCall && !this.isCommandTool(toolCall.toolName)) {
-            pushEvent({
-              type: 'tool_call',
-              id: toolCall.id,
-              toolName: toolCall.toolName,
-              args: toolCall.args,
-              argsText: toolCall.argsText,
-              title: toolCall.title,
+            const startedAt = new Date().toISOString()
+            observedToolCalls.set(toolCall.id, {
+              ...toolCall,
+              startedAt,
             })
+            pushEvent(
+              toolStateEvent(
+                buildGenericToolState({
+                  id: toolCall.id,
+                  toolName: toolCall.toolName,
+                  args: toolCall.args,
+                  argsText: toolCall.argsText,
+                  title: toolCall.title,
+                  status: 'pending',
+                  startedAt,
+                }),
+              ),
+            )
           }
           break
         }
         case 'tool_result': {
           const toolResult = this.extractToolResult(update)
           if (toolResult) {
-            pushEvent({
-              type: 'tool_result',
-              id: toolResult.id,
-              result: toolResult.result,
-              isError: toolResult.isError,
-            })
+            const observed = observedToolCalls.get(toolResult.id)
+            observedToolCalls.delete(toolResult.id)
+            const endedAt = new Date().toISOString()
+            pushEvent(
+              toolStateEvent(
+                buildGenericToolState({
+                  id: toolResult.id,
+                  toolName: observed?.toolName ?? 'tool',
+                  args: observed?.args ?? {},
+                  argsText: observed?.argsText ?? '{}',
+                  title: observed?.title,
+                  status: toolResult.isError ? 'error' : 'completed',
+                  result: toolResult.result,
+                  isError: toolResult.isError,
+                  error: toolResult.isError
+                    ? this.stringifyToolResult(toolResult.result)
+                    : undefined,
+                  startedAt: observed?.startedAt,
+                  endedAt,
+                }),
+              ),
+            )
           } else if (update.content?.type === 'text' && update.content?.text) {
             pushEvent({ type: 'text', text: update.content.text })
           }
@@ -186,10 +259,22 @@ export abstract class AcpBaseProvider implements AIProvider {
       'exec',
     ]) {
       client.onRequest(method, (params) => {
-        const toolName = this.getToolName(method, params)
+        const toolName = normalizePaulusToolName(this.getToolName(method, params))
 
         // Reject all non-Paulus tools — they would run locally, not on the remote server
         if (!this.isPaulusTool(toolName) && !this.isCommandTool(toolName)) {
+          pushEvent(
+            toolStateEvent(
+              buildInvalidToolState({
+                id: randomUUID(),
+                toolName,
+                args: this.extractToolArgs(params),
+                error: `Tool "${toolName}" is not available. Use the paulus_exec_server_command MCP tool to run commands on the remote server.`,
+                metadata: { method },
+              }),
+            ),
+          )
+
           return Promise.resolve({
             error: `Tool "${toolName}" is not available. You MUST use the paulus_exec_server_command MCP tool to run commands on the remote server. Do not attempt to use built-in Bash, terminal, or shell tools.`,
           })
@@ -198,9 +283,12 @@ export abstract class AcpBaseProvider implements AIProvider {
         return new Promise((resolve, reject) => {
           const command = this.extractCommand(params)
           const cmdId = randomUUID()
+          const startedAt = new Date().toISOString()
 
           pendingToolCalls.set(cmdId, {
             commandId: cmdId,
+            command,
+            startedAt,
             resolve: (result) => {
               resolve({
                 stdout: result.stdout,
@@ -217,12 +305,17 @@ export abstract class AcpBaseProvider implements AIProvider {
             },
           })
 
-          pushEvent({
-            type: 'command_proposal',
-            id: cmdId,
-            command,
-            explanation: this.buildCommandExplanation(toolName),
-          })
+          pushEvent(
+            toolStateEvent(
+              buildServerCommandToolState({
+                id: cmdId,
+                command,
+                status: 'pending',
+                startedAt,
+                explanation: this.buildCommandExplanation(toolName),
+              }),
+            ),
+          )
         })
       })
     }
@@ -276,7 +369,7 @@ export abstract class AcpBaseProvider implements AIProvider {
 
     // Clean up on process exit
     client.onClose(() => {
-      finish()
+      finish('ACP process exited before tool execution completed')
     })
 
     // --- Start the ACP session ---
@@ -345,7 +438,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         pushEvent({ type: 'error', message: err.message })
       } finally {
         await paulusMcpServer.close().catch(() => {})
-        finish()
+        finish('ACP run finished before tool execution completed')
       }
     })()
 
@@ -402,10 +495,7 @@ export abstract class AcpBaseProvider implements AIProvider {
 
       kill() {
         // Reject all pending tool calls
-        for (const [, pending] of pendingToolCalls) {
-          pending.reject(new Error('Process killed'))
-        }
-        pendingToolCalls.clear()
+        failPendingToolCalls('Process killed')
         void paulusMcpServer.close()
         client.kill()
       },
@@ -568,8 +658,26 @@ export abstract class AcpBaseProvider implements AIProvider {
     return JSON.stringify(input)
   }
 
+  private extractToolArgs(params: any): Record<string, unknown> {
+    const input = params?.input || params?.arguments || params || {}
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+      return input as Record<string, unknown>
+    }
+
+    return { value: input }
+  }
+
   private buildCommandExplanation(toolName: string): string {
     return `AI wants Paulus to run a command on the selected server via ${toolName}`
+  }
+
+  private stringifyToolResult(result: unknown): string {
+    if (typeof result === 'string') return result
+    try {
+      return JSON.stringify(result, null, 2)
+    } catch {
+      return String(result)
+    }
   }
 
   private extractToolCall(update: any): {
