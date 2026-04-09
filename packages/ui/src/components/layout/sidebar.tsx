@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChatStore, useServerStore, useSettingsStore, useLayoutStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import { ServerList } from '../servers/server-list'
 import { ServerForm } from '../servers/server-form'
+import { CategoryForm } from '../servers/category-form'
 import { PasswordPrompt } from '../servers/password-prompt'
 import { SessionList } from '../sessions/session-list'
 
@@ -11,16 +12,21 @@ type SidebarPanel = 'servers' | 'sessions'
 export function Sidebar() {
   const [activePanel, setActivePanel] = useState<SidebarPanel>('servers')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showAddCategoryForm, setShowAddCategoryForm] = useState(false)
   const [passwordPromptServerId, setPasswordPromptServerId] = useState<string | null>(null)
   const bridge = useBridge()
   const {
     servers,
+    categories,
     connections,
     activeServerId,
     setActiveServer,
     connectServer,
     connectServerWithPassword,
     disconnectServer,
+    moveServer,
+    renameCategory,
+    removeCategory,
   } = useServerStore()
   const activeView = useSettingsStore((s) => s.activeView)
   const openGlobalSettings = useSettingsStore((s) => s.openGlobalSettings)
@@ -158,16 +164,15 @@ export function Sidebar() {
               <>
                 <div className="flex items-center justify-between px-2 py-1">
                   <span className="text-xs font-medium text-zinc-500 uppercase">Servers</span>
-                  <button
-                    onClick={() => setShowAddForm(true)}
-                    className="text-xs text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded hover:bg-zinc-800"
-                  >
-                    + Add
-                  </button>
+                  <AddMenu
+                    onAddServer={() => setShowAddForm(true)}
+                    onAddCategory={() => setShowAddCategoryForm(true)}
+                  />
                 </div>
 
                 <ServerList
                   servers={servers}
+                  categories={categories}
                   connections={connections}
                   activeServerId={activeServerId}
                   onSelect={(id) => {
@@ -177,6 +182,13 @@ export function Sidebar() {
                   onEdit={(id) => openServerSettings(id)}
                   onConnect={handleConnect}
                   onDisconnect={(id) => disconnectServer(bridge, id)}
+                  onMove={(serverId, targetCategory, beforeServerId) =>
+                    moveServer(bridge, serverId, targetCategory, beforeServerId).catch(() => {})
+                  }
+                  onRenameCategory={(oldName, newName) =>
+                    renameCategory(bridge, oldName, newName).catch(() => {})
+                  }
+                  onRemoveCategory={(name) => removeCategory(bridge, name).catch(() => {})}
                 />
               </>
             ) : (
@@ -189,6 +201,8 @@ export function Sidebar() {
       </div>
 
       {showAddForm && <ServerForm onClose={() => setShowAddForm(false)} />}
+
+      {showAddCategoryForm && <CategoryForm onClose={() => setShowAddCategoryForm(false)} />}
 
       {promptServer && (
         <PasswordPrompt
@@ -227,5 +241,100 @@ function ActivityBarButton({
     >
       {children}
     </button>
+  )
+}
+
+function AddMenu({
+  onAddServer,
+  onAddCategory,
+}: {
+  onAddServer: () => void
+  onAddCategory: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('mousedown', handleClick)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('mousedown', handleClick)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        title="Add"
+        aria-label="Add server or category"
+        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 4a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 10 4Z" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-1 min-w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onAddServer()
+            }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            <svg
+              className="h-4 w-4 text-zinc-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21.75 17.25v-.228a4.5 4.5 0 0 0-.12-1.03l-2.268-9.64a3.375 3.375 0 0 0-3.285-2.602H7.923a3.375 3.375 0 0 0-3.285 2.602l-2.268 9.64a4.5 4.5 0 0 0-.12 1.03v.228m19.5 0a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3m19.5 0a3 3 0 0 0-3-3H5.25a3 3 0 0 0-3 3m16.5 0h.008v.008h-.008v-.008Zm-3 0h.008v.008h-.008v-.008Z"
+              />
+            </svg>
+            New server
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onAddCategory()
+            }}
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+          >
+            <svg
+              className="h-4 w-4 text-zinc-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"
+              />
+            </svg>
+            New category
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

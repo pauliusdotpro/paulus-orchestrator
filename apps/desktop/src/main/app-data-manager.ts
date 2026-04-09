@@ -1,10 +1,11 @@
 import { app, dialog, shell } from 'electron'
-import { readdir, rename, writeFile } from 'fs/promises'
+import { readFile, readdir, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
-import type { AppDataOverview, PasswordStorageMode } from '@paulus/shared'
+import type { AppDataOverview, PasswordStorageMode, RoyalTsxImportResult } from '@paulus/shared'
 import type { StorageService } from '@paulus/core'
 import type { ServerManager } from '@paulus/core'
 import { DesktopCredentialStoreManager } from './credential-store'
+import { parseRoyalTsxDocument } from './royal-tsx-import'
 
 export class AppDataManager {
   constructor(
@@ -77,6 +78,38 @@ export class AppDataManager {
     await rename(tmpPath, result.filePath)
 
     return result.filePath
+  }
+
+  async importRoyalTsx(documentPassword: string): Promise<RoyalTsxImportResult | null> {
+    const result = await dialog.showOpenDialog({
+      title: 'Import Royal TSX document',
+      defaultPath: app.getPath('documents'),
+      properties: ['openFile'],
+      filters: [{ name: 'Royal TSX Documents', extensions: ['rtsz'] }],
+    })
+
+    const filePath = result.filePaths[0]
+    if (result.canceled || !filePath) {
+      return null
+    }
+
+    const xml = await readFile(filePath, 'utf-8')
+    const parsed = parseRoyalTsxDocument(xml, documentPassword)
+
+    let savedPasswordCount = 0
+    for (const server of parsed.servers) {
+      await this.serverManager.add(server.config, server.password)
+      savedPasswordCount += 1
+    }
+
+    return {
+      filePath,
+      importedServerCount: parsed.servers.length,
+      savedPasswordCount,
+      encryptedSecretCount: parsed.encryptedSecretCount,
+      skippedServerCount: parsed.skippedServers.length,
+      skippedServers: parsed.skippedServers,
+    }
   }
 
   async setPasswordStorageMode(mode: PasswordStorageMode): Promise<AppDataOverview> {

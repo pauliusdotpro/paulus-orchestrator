@@ -13,6 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('servers:add', { config, password }),
     update: (server: any, password?: string) =>
       ipcRenderer.invoke('servers:update', { config: server, password }),
+    move: (serverId: string, targetCategory: string, beforeServerId?: string) =>
+      ipcRenderer.invoke('servers:move', { serverId, targetCategory, beforeServerId }),
+    listCategories: () => ipcRenderer.invoke('servers:list-categories'),
+    createCategory: (name: string) => ipcRenderer.invoke('servers:create-category', name),
+    renameCategory: (oldName: string, newName: string) =>
+      ipcRenderer.invoke('servers:rename-category', { oldName, newName }),
+    removeCategory: (name: string) => ipcRenderer.invoke('servers:remove-category', name),
     remove: (id: string) => ipcRenderer.invoke('servers:remove', id),
     connect: (id: string) => ipcRenderer.invoke('servers:connect', id),
     connectWithPassword: (id: string, password: string, save: boolean) =>
@@ -60,6 +67,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getOverview: () => ipcRenderer.invoke('app-data:overview'),
     openDirectory: () => ipcRenderer.invoke('app-data:open-directory'),
     exportServers: () => ipcRenderer.invoke('app-data:export-servers'),
+    importRoyalTsx: (documentPassword: string) =>
+      ipcRenderer.invoke('app-data:import-royal-tsx', { documentPassword }),
     setPasswordStorageMode: (mode: string) =>
       ipcRenderer.invoke('app-data:set-password-storage-mode', mode),
   },

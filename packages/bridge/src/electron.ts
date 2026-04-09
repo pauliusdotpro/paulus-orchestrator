@@ -8,6 +8,12 @@ export function createElectronBridge(): Bridge {
       list: () => api.servers.list(),
       add: (server, password) => api.servers.add(server, password),
       update: (server, password) => api.servers.update(server, password),
+      move: (serverId, targetCategory, beforeServerId) =>
+        api.servers.move(serverId, targetCategory, beforeServerId),
+      listCategories: () => api.servers.listCategories(),
+      createCategory: (name) => api.servers.createCategory(name),
+      renameCategory: (oldName, newName) => api.servers.renameCategory(oldName, newName),
+      removeCategory: (name) => api.servers.removeCategory(name),
       remove: (id) => api.servers.remove(id),
       connect: (id) => api.servers.connect(id),
       connectWithPassword: (id, password, save) =>
@@ -45,6 +51,7 @@ export function createElectronBridge(): Bridge {
       getOverview: () => api.appData.getOverview(),
       openDirectory: () => api.appData.openDirectory(),
       exportServers: () => api.appData.exportServers(),
+      importRoyalTsx: (documentPassword) => api.appData.importRoyalTsx(documentPassword),
       setPasswordStorageMode: (mode) => api.appData.setPasswordStorageMode(mode),
     },
     storage: {

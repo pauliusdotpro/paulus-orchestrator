@@ -22,6 +22,10 @@ Nothing runs without approval.
 Server data stays on your machine.
 Passwords are stored with the OS keychain through Electron `safeStorage`.
 
+## Screenshot
+
+![Paulus Orchestrator screenshot](assets/app-screenshot.png)
+
 ## How It Works
 
 1. Add a server.

@@ -8,7 +8,7 @@ import {
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react'
 import type { AISessionConfig, AIProviderType, AIToolKind, AIToolStatus } from '@paulus/shared'
-import { useChatStore, useSettingsStore } from '../../stores'
+import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
 import { useAssistantRuntime } from '../../hooks/use-assistant-runtime'
 import { MarkdownText } from './markdown-text'
@@ -128,25 +128,52 @@ function UserMessage() {
 function AssistantMessage({ isConnected }: { isConnected: boolean }) {
   return (
     <MessagePrimitive.Root>
-      <div className="min-w-0 px-4 py-3 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-zinc-300 space-y-3">
-        <MessagePrimitive.Parts
-          components={{
-            Text: MarkdownText,
-            Reasoning: ReasoningPart,
-            tools: {
-              Override: (props) => <ToolCallPart {...props} isConnected={isConnected} />,
-            },
-          }}
-        />
-      </div>
+      <MessagePrimitive.If hasContent>
+        <div className="min-w-0 px-4 py-3 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-zinc-300 space-y-3">
+          <MessagePrimitive.Parts
+            components={{
+              Text: MarkdownText,
+              Reasoning: ReasoningPart,
+              tools: {
+                Override: (props) => <ToolCallPart {...props} isConnected={isConnected} />,
+              },
+            }}
+          />
+        </div>
+      </MessagePrimitive.If>
+      <MessagePrimitive.If hasContent={false}>
+        <AssistantMessagePending />
+      </MessagePrimitive.If>
     </MessagePrimitive.Root>
   )
 }
 
+function AssistantMessagePending() {
+  return (
+    <div
+      className="flex items-center gap-1.5 px-4 py-3"
+      role="status"
+      aria-label="Assistant is thinking"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse" />
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse [animation-delay:150ms]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 animate-pulse [animation-delay:300ms]" />
+    </div>
+  )
+}
+
 function Composer({ serverId, isConnected }: { serverId: string; isConnected: boolean }) {
+  const serverColor = useServerStore((s) => s.servers.find((srv) => srv.id === serverId)?.color)
+  const tintStyle = serverColor
+    ? { backgroundImage: `linear-gradient(${serverColor}1f, ${serverColor}1f)` }
+    : undefined
+
   return (
     <ComposerPrimitive.Root className="border-t border-zinc-800/60 bg-zinc-900/50 px-4 py-3">
-      <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/60 shadow-lg shadow-black/20 focus-within:border-zinc-600/70 transition-colors">
+      <div
+        className="rounded-xl border border-zinc-700/50 bg-zinc-800/60 shadow-lg shadow-black/20 focus-within:border-zinc-600/70 transition-colors"
+        style={tintStyle}
+      >
         <ComposerPrimitive.Input
           autoFocus={isConnected}
           disabled={!isConnected}

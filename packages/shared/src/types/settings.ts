@@ -11,4 +11,5 @@ export interface AppSettings {
   sidebarCollapsed: boolean
   panelLayout: PanelLayout
   terminalWidth: number
+  anonymousMode: boolean
 }

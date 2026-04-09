@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import type { ServerConfig } from '@paulus/shared'
+import { DEFAULT_SERVER_CATEGORY, type ServerConfig } from '@paulus/shared'
 import { useServerStore } from '../../stores'
 import { useBridge } from '../../hooks/use-bridge'
+import { ServerColorPicker } from './server-color-picker'
+import { CategoryPicker } from './category-picker'
 
 interface ServerFormProps {
   server?: ServerConfig
@@ -13,9 +15,11 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
   const bridge = useBridge()
   const addServer = useServerStore((s) => s.addServer)
   const updateServer = useServerStore((s) => s.updateServer)
+  const categories = useServerStore((s) => s.categories)
   const isEditing = Boolean(server)
   const [form, setForm] = useState(() => ({
     name: server?.name ?? '',
+    category: server?.category ?? DEFAULT_SERVER_CATEGORY,
     host: server?.host ?? '',
     port: server?.port ?? 22,
     username: server?.username ?? 'root',
@@ -23,10 +27,12 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
     privateKeyPath: server?.privateKeyPath ?? '',
     password: '',
     autoConnect: server?.autoConnect ?? false,
+    color: server?.color,
   }))
   const [clearSavedPassword, setClearSavedPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const autoConnectAvailable = form.authMethod === 'key'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,12 +40,14 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
     try {
       const nextConfig = {
         name: form.name,
+        category: form.category.trim() || DEFAULT_SERVER_CATEGORY,
         host: form.host,
         port: form.port,
         username: form.username,
         authMethod: form.authMethod,
         privateKeyPath: form.authMethod === 'key' ? form.privateKeyPath || undefined : undefined,
-        autoConnect: form.autoConnect,
+        autoConnect: autoConnectAvailable ? form.autoConnect : false,
+        color: form.color,
       }
       const password =
         form.authMethod === 'key'
@@ -110,6 +118,20 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
           />
         </div>
 
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1">Category</label>
+          <CategoryPicker
+            value={form.category}
+            categories={categories}
+            onChange={(category) => setForm({ ...form, category })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-zinc-400 mb-2">Color</label>
+          <ServerColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-2">
             <label className="block text-xs text-zinc-400 mb-1">Host</label>
@@ -161,7 +183,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
                 type="radio"
                 name="auth"
                 checked={form.authMethod === 'password'}
-                onChange={() => setForm({ ...form, authMethod: 'password' })}
+                onChange={() => setForm({ ...form, authMethod: 'password', autoConnect: false })}
               />
               Password
             </label>
@@ -202,7 +224,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
             <p className="text-xs text-zinc-600 mt-1">
               {isEditing && server?.hasPassword
                 ? 'Leave blank to keep the current saved password.'
-                : 'Encrypted and stored locally via OS keychain'}
+                : 'Encrypted and stored locally via OS keychain. Paulus only reads it when you connect.'}
             </p>
             {isEditing && server?.hasPassword && form.password.length === 0 && (
               <label className="mt-2 flex items-center gap-2 cursor-pointer">
@@ -227,12 +249,22 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={form.autoConnect}
+            checked={autoConnectAvailable && form.autoConnect}
             onChange={(e) => setForm({ ...form, autoConnect: e.target.checked })}
+            disabled={!autoConnectAvailable}
             className="rounded border-zinc-600 bg-zinc-800"
           />
-          <span className="text-sm text-zinc-300">Auto-connect on launch</span>
+          <span className={`text-sm ${autoConnectAvailable ? 'text-zinc-300' : 'text-zinc-500'}`}>
+            Auto-connect on launch
+          </span>
         </label>
+
+        {!autoConnectAvailable && (
+          <p className="text-xs text-zinc-500">
+            Launch auto-connect is only available for SSH key authentication. Password-based servers
+            require manual connect so the OS keychain prompt never appears on app open.
+          </p>
+        )}
 
         {isEditing && (
           <p className="text-xs text-zinc-500">

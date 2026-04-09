@@ -11,6 +11,7 @@ import type {
   AppSettings,
   AppDataOverview,
   PasswordStorageMode,
+  RoyalTsxImportResult,
   TerminalSessionState,
 } from '@paulus/shared'
 
@@ -22,6 +23,14 @@ export interface Bridge {
       password?: string,
     ): Promise<ServerConfig>
     update(server: ServerConfig, password?: string): Promise<ServerConfig>
+    move(serverId: string, targetCategory: string, beforeServerId?: string): Promise<ServerConfig[]>
+    listCategories(): Promise<string[]>
+    createCategory(name: string): Promise<string[]>
+    renameCategory(
+      oldName: string,
+      newName: string,
+    ): Promise<{ categories: string[]; servers: ServerConfig[] }>
+    removeCategory(name: string): Promise<{ categories: string[]; servers: ServerConfig[] }>
     remove(id: string): Promise<void>
     connect(id: string): Promise<void>
     connectWithPassword(id: string, password: string, save: boolean): Promise<void>
@@ -70,6 +79,7 @@ export interface Bridge {
     getOverview(): Promise<AppDataOverview>
     openDirectory(): Promise<void>
     exportServers(): Promise<string | null>
+    importRoyalTsx(documentPassword: string): Promise<RoyalTsxImportResult | null>
     setPasswordStorageMode(mode: PasswordStorageMode): Promise<AppDataOverview>
   }
 

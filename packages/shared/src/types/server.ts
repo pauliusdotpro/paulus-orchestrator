@@ -1,6 +1,9 @@
+export const DEFAULT_SERVER_CATEGORY = 'Uncategorized'
+
 export interface ServerConfig {
   id: string
   name: string
+  category: string
   host: string
   port: number
   username: string
@@ -8,6 +11,7 @@ export interface ServerConfig {
   privateKeyPath?: string
   hasPassword?: boolean
   autoConnect?: boolean
+  color?: string
   tags?: string[]
   createdAt: string
   updatedAt: string

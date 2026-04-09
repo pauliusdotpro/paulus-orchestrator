@@ -10,7 +10,7 @@ import type {
   TerminalSessionState,
 } from './ai'
 import type { AppSettings } from './settings'
-import type { AppDataOverview, PasswordStorageMode } from './app-data'
+import type { AppDataOverview, PasswordStorageMode, RoyalTsxImportResult } from './app-data'
 
 export interface IPCChannelMap {
   'servers:list': [void, ServerConfig[]]
@@ -19,6 +19,17 @@ export interface IPCChannelMap {
     ServerConfig,
   ]
   'servers:update': [{ config: ServerConfig; password?: string }, ServerConfig]
+  'servers:move': [
+    { serverId: string; targetCategory: string; beforeServerId?: string },
+    ServerConfig[],
+  ]
+  'servers:list-categories': [void, string[]]
+  'servers:create-category': [string, string[]]
+  'servers:rename-category': [
+    { oldName: string; newName: string },
+    { categories: string[]; servers: ServerConfig[] },
+  ]
+  'servers:remove-category': [string, { categories: string[]; servers: ServerConfig[] }]
   'servers:remove': [string, void]
   'servers:connect': [string, void]
   'servers:connect-with-password': [{ id: string; password: string; save: boolean }, void]
@@ -46,6 +57,7 @@ export interface IPCChannelMap {
   'app-data:overview': [void, AppDataOverview]
   'app-data:open-directory': [void, void]
   'app-data:export-servers': [void, string | null]
+  'app-data:import-royal-tsx': [{ documentPassword: string }, RoyalTsxImportResult | null]
   'app-data:set-password-storage-mode': [PasswordStorageMode, AppDataOverview]
 
   'storage:get': [string, unknown]

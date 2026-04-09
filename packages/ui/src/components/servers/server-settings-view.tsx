@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import type { ServerConfig } from '@paulus/shared'
+import { DEFAULT_SERVER_CATEGORY, type ServerConfig } from '@paulus/shared'
 import { useBridge } from '../../hooks/use-bridge'
 import { useChatStore, useServerStore, useSettingsStore } from '../../stores'
+import { ServerColorPicker } from './server-color-picker'
+import { CategoryPicker } from './category-picker'
+import { maskHost, maskPort, maskUsername } from '../../lib/anonymize'
 
 type ServerSettingsTab = 'general' | 'authentication' | 'advanced' | 'danger'
 
@@ -20,11 +23,14 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
   const bridge = useBridge()
   const updateServer = useServerStore((s) => s.updateServer)
   const removeServer = useServerStore((s) => s.removeServer)
+  const categories = useServerStore((s) => s.categories)
   const removeSessionsForServer = useChatStore((s) => s.removeSessionsForServer)
   const closeSettingsView = useSettingsStore((s) => s.closeSettingsView)
+  const anonymousMode = useSettingsStore((s) => s.settings?.anonymousMode ?? false)
   const [activeTab, setActiveTab] = useState<ServerSettingsTab>('general')
   const [form, setForm] = useState(() => ({
     name: server.name,
+    category: server.category,
     host: server.host,
     port: server.port,
     username: server.username,
@@ -32,10 +38,12 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
     privateKeyPath: server.privateKeyPath ?? '',
     password: '',
     autoConnect: server.autoConnect ?? false,
+    color: server.color,
   }))
   const [clearSavedPassword, setClearSavedPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const autoConnectAvailable = form.authMethod === 'key'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,12 +63,14 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
         {
           ...server,
           name: form.name,
+          category: form.category.trim() || DEFAULT_SERVER_CATEGORY,
           host: form.host,
           port: form.port,
           username: form.username,
           authMethod: form.authMethod,
           privateKeyPath: form.authMethod === 'key' ? form.privateKeyPath || undefined : undefined,
-          autoConnect: form.autoConnect,
+          autoConnect: autoConnectAvailable ? form.autoConnect : false,
+          color: form.color,
           hasPassword: form.authMethod === 'password' ? server.hasPassword : false,
         },
         password,
@@ -96,7 +106,9 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">Server Settings</h2>
           <p className="text-xs text-zinc-500 mt-1">
-            {server.username}@{server.host}:{server.port}
+            {anonymousMode ? maskUsername(server.username) : server.username}@
+            {anonymousMode ? maskHost(server.host) : server.host}:
+            {anonymousMode ? maskPort(server.port) : server.port}
           </p>
         </div>
         <button
@@ -128,7 +140,11 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'general' && (
-            <GeneralTab form={form} onChange={(patch) => setForm({ ...form, ...patch })} />
+            <GeneralTab
+              form={form}
+              categories={categories}
+              onChange={(patch) => setForm({ ...form, ...patch })}
+            />
           )}
 
           {activeTab === 'authentication' && (
@@ -138,7 +154,13 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
               password={form.password}
               hasSavedPassword={Boolean(server.hasPassword)}
               clearSavedPassword={clearSavedPassword}
-              onAuthMethodChange={(authMethod) => setForm({ ...form, authMethod })}
+              onAuthMethodChange={(authMethod) =>
+                setForm({
+                  ...form,
+                  authMethod,
+                  autoConnect: authMethod === 'key' ? form.autoConnect : false,
+                })
+              }
               onPrivateKeyPathChange={(privateKeyPath) => setForm({ ...form, privateKeyPath })}
               onPasswordChange={(password) => {
                 setForm({ ...form, password })
@@ -152,6 +174,7 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
 
           {activeTab === 'advanced' && (
             <AdvancedTab
+              authMethod={form.authMethod}
               autoConnect={form.autoConnect}
               onAutoConnectChange={(autoConnect) => setForm({ ...form, autoConnect })}
             />
@@ -185,15 +208,28 @@ export function ServerSettingsView({ server }: ServerSettingsViewProps) {
 
 function GeneralTab({
   form,
+  categories,
   onChange,
 }: {
   form: {
     name: string
+    category: string
     host: string
     port: number
     username: string
+    color: string | undefined
   }
-  onChange: (patch: Partial<{ name: string; host: string; port: number; username: string }>) => void
+  categories: string[]
+  onChange: (
+    patch: Partial<{
+      name: string
+      category: string
+      host: string
+      port: number
+      username: string
+      color: string | undefined
+    }>,
+  ) => void
 }) {
   return (
     <section className="space-y-5">
@@ -211,6 +247,20 @@ function GeneralTab({
           onChange={(e) => onChange({ name: e.target.value })}
           className="w-full max-w-md px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
         />
+      </div>
+
+      <div className="max-w-md">
+        <label className="block text-xs text-zinc-500 mb-1.5">Category</label>
+        <CategoryPicker
+          value={form.category}
+          categories={categories}
+          onChange={(category) => onChange({ category })}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs text-zinc-500 mb-2">Color</label>
+        <ServerColorPicker value={form.color} onChange={(color) => onChange({ color })} />
       </div>
 
       <div className="grid grid-cols-3 gap-3 max-w-md">
@@ -336,7 +386,7 @@ function AuthenticationTab({
           <p className="text-xs text-zinc-500 mt-1.5">
             {hasSavedPassword
               ? 'Leave blank to keep the current saved password.'
-              : 'Encrypted and stored locally via OS keychain.'}
+              : 'Encrypted and stored locally via OS keychain. Paulus only reads it when you connect.'}
           </p>
           {hasSavedPassword && password.length === 0 && (
             <label className="mt-3 flex items-center gap-2 cursor-pointer">
@@ -356,12 +406,16 @@ function AuthenticationTab({
 }
 
 function AdvancedTab({
+  authMethod,
   autoConnect,
   onAutoConnectChange,
 }: {
+  authMethod: 'password' | 'key'
   autoConnect: boolean
   onAutoConnectChange: (autoConnect: boolean) => void
 }) {
+  const autoConnectAvailable = authMethod === 'key'
+
   return (
     <section className="space-y-5">
       <div>
@@ -374,16 +428,26 @@ function AdvancedTab({
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
-          checked={autoConnect}
+          checked={autoConnectAvailable && autoConnect}
           onChange={(e) => onAutoConnectChange(e.target.checked)}
+          disabled={!autoConnectAvailable}
           className="rounded border-zinc-600 bg-zinc-800"
         />
-        <span className="text-sm text-zinc-300">Auto-connect on launch</span>
+        <span className={`text-sm ${autoConnectAvailable ? 'text-zinc-300' : 'text-zinc-500'}`}>
+          Auto-connect on launch
+        </span>
       </label>
 
-      <p className="text-xs text-zinc-500">
-        If this server is already connected, reconnect to apply updated connection details.
-      </p>
+      {autoConnectAvailable ? (
+        <p className="text-xs text-zinc-500">
+          If this server is already connected, reconnect to apply updated connection details.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-500">
+          Launch auto-connect is only available for SSH key authentication. Password-based servers
+          require manual connect so the OS keychain prompt never appears on app open.
+        </p>
+      )}
     </section>
   )
 }
