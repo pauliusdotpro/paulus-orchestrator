@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
+import { PAULUS_VERSION } from '@paulus/shared'
 import type { AIServerContext } from './provider'
 
 export interface CommandExecutionResult {
@@ -209,7 +210,7 @@ export class PaulusMcpServer {
   constructor(private readonly options: McpToolServerOptions) {
     this.mcpServer = new McpServer({
       name: 'paulus-orchestrator',
-      version: '0.3.3',
+      version: PAULUS_VERSION,
     })
 
     registerTools(this.mcpServer, options)
