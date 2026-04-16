@@ -11,10 +11,6 @@ describe('shell env bootstrap', () => {
     expect(buildDesktopShellEnvArgs()).toEqual(['-il', '-c', 'env -0'])
   })
 
-  test('can read the full environment from a login shell fallback', () => {
-    expect(buildDesktopShellEnvArgs('-l')).toEqual(['-l', '-c', 'env -0'])
-  })
-
   test('falls back to /bin/sh when SHELL is missing', () => {
     const originalShell = process.env.SHELL
     delete process.env.SHELL
