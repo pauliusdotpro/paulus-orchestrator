@@ -93,8 +93,12 @@ export function buildServerCommandToolState(
     explanation?: string
     output?: AICommandToolOutput
     error?: string
+    serverId?: string
+    serverName?: string
   },
 ): AIToolState {
+  const serverName = input.serverName ?? input.metadata?.serverName as string | undefined
+  const serverId = input.serverId ?? input.metadata?.serverId as string | undefined
   return {
     id: input.id,
     toolName: PAULUS_SERVER_COMMAND_TOOL,
@@ -102,7 +106,7 @@ export function buildServerCommandToolState(
     status: input.status,
     args: input.args ?? { command: input.command },
     argsText: input.argsText ?? JSON.stringify({ command: input.command }, null, 2),
-    title: input.title ?? 'Run On Server',
+    title: serverName ? `Run On ${serverName}` : 'Run On Server',
     command: input.command,
     explanation: input.explanation,
     output: input.output,
@@ -111,6 +115,8 @@ export function buildServerCommandToolState(
     startedAt: input.startedAt,
     endedAt: input.endedAt,
     metadata: input.metadata,
+    serverId,
+    serverName,
   }
 }
 

@@ -73,6 +73,9 @@ export interface AIToolState {
   metadata?: Record<string, unknown>
   startedAt?: string
   endedAt?: string
+  /** Which server this command targets (for multi-server sessions) */
+  serverId?: string
+  serverName?: string
 }
 
 export type AIEvent =
@@ -110,7 +113,12 @@ export interface AIMessage {
 
 export interface AISession {
   id: string
-  serverId: string
+  /**
+   * @deprecated Use `serverIds` instead. Kept for backward compatibility with stored sessions.
+   */
+  serverId?: string
+  /** All servers available to this chat session */
+  serverIds: string[]
   messages: AIMessage[]
   provider: AIProviderType
   model: string | null

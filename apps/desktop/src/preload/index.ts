@@ -31,12 +31,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onOutput: (cb: any) => onEvent('ssh:output', cb),
   },
   ai: {
-    send: (serverId: string, sessionId: string, message: string) =>
-      ipcRenderer.invoke('ai:send', { serverId, sessionId, message }),
+    send: (serverIds: string[], sessionId: string, message: string) =>
+      ipcRenderer.invoke('ai:send', { serverIds, sessionId, message }),
     approve: (sessionId: string, commandId: string) =>
       ipcRenderer.invoke('ai:approve', { sessionId, commandId }),
     reject: (sessionId: string, commandId: string) =>
       ipcRenderer.invoke('ai:reject', { sessionId, commandId }),
+    kill: (sessionId: string) => ipcRenderer.invoke('ai:kill', { sessionId }),
     getProviders: () => ipcRenderer.invoke('ai:providers'),
     getModels: (provider: string) => ipcRenderer.invoke('ai:models', provider),
     onEvent: (cb: any) => onEvent('ai:event', cb),
@@ -45,9 +46,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     list: (serverId: string) => ipcRenderer.invoke('sessions:list', serverId),
     get: (sessionId: string) => ipcRenderer.invoke('sessions:get', sessionId),
     create: (
-      serverId: string,
+      serverIds: string[],
       config: { provider: string; model: string | null; yoloMode: boolean },
-    ) => ipcRenderer.invoke('sessions:create', { serverId, config }),
+    ) => ipcRenderer.invoke('sessions:create', { serverIds, config }),
     update: (
       sessionId: string,
       config: { provider: string; model: string | null; yoloMode: boolean },

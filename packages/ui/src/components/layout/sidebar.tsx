@@ -54,7 +54,7 @@ export function Sidebar() {
   return (
     <div className="flex h-full">
       {/* Activity bar — thin icon strip */}
-      <div className="w-12 bg-zinc-950 border-r border-zinc-800 flex flex-col items-center py-3 gap-1 flex-shrink-0">
+      <div className="w-12 bg-surface border-r border-edge-subtle flex flex-col items-center py-3 gap-1 flex-shrink-0">
         <ActivityBarButton
           active={activePanel === 'servers'}
           onClick={() => setActivePanel('servers')}
@@ -134,13 +134,13 @@ export function Sidebar() {
       </div>
 
       {/* Panel content */}
-      <div className="w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col h-full">
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-          <h1 className="text-sm font-bold text-zinc-100 tracking-wide uppercase">Paulus</h1>
+      <div className="w-56 bg-surface-alt border-r border-edge-subtle flex flex-col h-full">
+        <div className="p-4 border-b border-edge-subtle flex items-center justify-between">
+          <h1 className="text-sm font-bold text-fg tracking-wide uppercase">Paulus</h1>
           <button
             onClick={toggleSidebar}
             title="Collapse sidebar"
-            className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-md p-1 transition-colors"
+            className="text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised rounded-md p-1 transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -163,7 +163,7 @@ export function Sidebar() {
             {activePanel === 'servers' ? (
               <>
                 <div className="flex items-center justify-between px-2 py-1">
-                  <span className="text-xs font-medium text-zinc-500 uppercase">Servers</span>
+                  <span className="text-xs font-medium text-fg-faint uppercase">Servers</span>
                   <AddMenu
                     onAddServer={() => setShowAddForm(true)}
                     onAddCategory={() => setShowAddCategoryForm(true)}
@@ -197,7 +197,7 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="border-t border-zinc-800" />
+        <div className="border-t border-edge-subtle" />
       </div>
 
       {showAddForm && <ServerForm onClose={() => setShowAddForm(false)} />}
@@ -235,8 +235,8 @@ function ActivityBarButton({
       title={label}
       className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
         active
-          ? 'bg-zinc-800 text-zinc-100'
-          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+          ? 'bg-surface-raised text-fg'
+          : 'text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised/50'
       }`}
     >
       {children}
@@ -279,24 +279,24 @@ function AddMenu({
         onClick={() => setOpen((prev) => !prev)}
         title="Add"
         aria-label="Add server or category"
-        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+        className="flex h-6 w-6 items-center justify-center rounded text-fg-muted hover:bg-surface-raised hover:text-fg"
       >
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path d="M10 4a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 10 4Z" />
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-1 min-w-44 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-2xl">
+        <div className="absolute right-0 top-full z-30 mt-1 min-w-44 overflow-hidden rounded-md border border-edge bg-surface-alt py-1 shadow-2xl">
           <button
             type="button"
             onClick={() => {
               setOpen(false)
               onAddServer()
             }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-fg-secondary hover:bg-surface-raised"
           >
             <svg
-              className="h-4 w-4 text-zinc-500"
+              className="h-4 w-4 text-fg-faint"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={1.5}
@@ -316,10 +316,10 @@ function AddMenu({
               setOpen(false)
               onAddCategory()
             }}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-fg-secondary hover:bg-surface-raised"
           >
             <svg
-              className="h-4 w-4 text-zinc-500"
+              className="h-4 w-4 text-fg-faint"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={1.5}

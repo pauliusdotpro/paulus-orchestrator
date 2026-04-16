@@ -34,10 +34,14 @@ export class SessionManager {
     return this.normalizeSession(session)
   }
 
-  async create(serverId: string, config: AISessionConfig): Promise<AISession> {
+  async create(serverIds: string[], config: AISessionConfig): Promise<AISession> {
+    // Use first server as the primary for storage keying
+    const primaryServerId = serverIds[0]
+    if (!primaryServerId) throw new Error('At least one server is required')
+
     const session: AISession = {
       id: randomUUID(),
-      serverId,
+      serverIds,
       messages: [],
       provider: config.provider,
       model: config.model,
@@ -47,12 +51,17 @@ export class SessionManager {
     }
     await this.save(session)
 
-    const index = (await this.storage.get<string[]>(this.serverIndexKey(serverId))) ?? []
-    index.push(session.id)
-    await this.storage.set(this.serverIndexKey(serverId), index)
+    // Index under each server so the session is visible from any of them
+    for (const serverId of serverIds) {
+      const index = (await this.storage.get<string[]>(this.serverIndexKey(serverId))) ?? []
+      if (!index.includes(session.id)) {
+        index.push(session.id)
+        await this.storage.set(this.serverIndexKey(serverId), index)
+      }
+    }
 
     const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
-    lookup[session.id] = serverId
+    lookup[session.id] = primaryServerId
     await this.storage.set(this.globalIndexKey(), lookup)
 
     return session
@@ -122,7 +131,8 @@ export class SessionManager {
   }
 
   private async save(session: AISession): Promise<void> {
-    await this.storage.set(this.sessionKey(session.serverId, session.id), session)
+    const primaryServerId = session.serverIds[0] ?? (session as any).serverId
+    await this.storage.set(this.sessionKey(primaryServerId, session.id), session)
   }
 
   private async normalizeSession(session: AISession): Promise<AISession> {
@@ -132,20 +142,31 @@ export class SessionManager {
     const normalizedModel = typeof session.model === 'string' ? session.model : null
     const normalizedYoloMode = session.yoloMode === true
 
-    if (
-      normalizedProvider === session.provider &&
-      normalizedModel === session.model &&
-      normalizedYoloMode === session.yoloMode
-    ) {
+    // Migrate old serverId → serverIds
+    let serverIds = session.serverIds
+    if (!serverIds || serverIds.length === 0) {
+      const legacyServerId = (session as any).serverId as string | undefined
+      serverIds = legacyServerId ? [legacyServerId] : []
+    }
+
+    const needsUpdate =
+      normalizedProvider !== session.provider ||
+      normalizedModel !== session.model ||
+      normalizedYoloMode !== session.yoloMode ||
+      serverIds !== session.serverIds
+
+    if (!needsUpdate) {
       return session
     }
 
     const normalizedSession: AISession = {
       ...session,
+      serverIds,
       provider: normalizedProvider,
       model: normalizedModel,
       yoloMode: normalizedYoloMode,
     }
+    delete normalizedSession.serverId
     await this.save(normalizedSession)
     return normalizedSession
   }

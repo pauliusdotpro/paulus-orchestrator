@@ -3,6 +3,7 @@ import { ClaudeAcpProvider } from './providers/claude-acp'
 import { CodexAcpProvider } from './providers/codex-acp'
 
 export interface AIServerContext {
+  id: string
   name: string
   host: string
   port: number
@@ -15,7 +16,8 @@ export interface AIServerContext {
 }
 
 export interface AIContext {
-  server: AIServerContext
+  /** All servers available in this session */
+  servers: AIServerContext[]
   systemInfo?: string
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
   onPaulusToolCall?: (toolName: string, args: Record<string, unknown>) => void

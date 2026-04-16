@@ -178,7 +178,7 @@ async function resolveSession(
 ): Promise<string> {
   if (explicitSessionId) {
     const session = await runtime.sessions.get(explicitSessionId)
-    if (session.serverId !== serverId) {
+    if (!session.serverIds.includes(serverId)) {
       throw new Error(`Session ${explicitSessionId} does not belong to the selected server`)
     }
     return session.id
@@ -191,7 +191,7 @@ async function resolveSession(
   }
 
   const settings = await runtime.settings.get()
-  const session = await runtime.sessions.create(serverId, {
+  const session = await runtime.sessions.create([serverId], {
     provider: settings.activeProvider,
     model: null,
     yoloMode: false,
@@ -440,7 +440,7 @@ async function runChatSend(
         options.sessionId,
         options.newSession,
       )
-      await runtimeRef.current.aiOrchestrator.send(server.id, activeSessionId, message)
+      await runtimeRef.current.aiOrchestrator.send([server.id], activeSessionId, message)
     })().catch((err) => {
       reject(err instanceof Error ? err : new Error(String(err)))
     })

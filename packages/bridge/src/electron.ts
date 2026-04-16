@@ -24,9 +24,10 @@ export function createElectronBridge(): Bridge {
       onOutput: (cb) => api.servers.onOutput(cb),
     },
     ai: {
-      send: (serverId, sessionId, message) => api.ai.send(serverId, sessionId, message),
+      send: (serverIds, sessionId, message) => api.ai.send(serverIds, sessionId, message),
       approve: (sessionId, commandId) => api.ai.approve(sessionId, commandId),
       reject: (sessionId, commandId) => api.ai.reject(sessionId, commandId),
+      kill: (sessionId) => api.ai.kill(sessionId),
       getProviders: () => api.ai.getProviders(),
       getModels: (provider) => api.ai.getModels(provider),
       onEvent: (cb) => api.ai.onEvent(cb),
@@ -34,7 +35,7 @@ export function createElectronBridge(): Bridge {
     sessions: {
       list: (serverId) => api.sessions.list(serverId),
       get: (sessionId) => api.sessions.get(sessionId),
-      create: (serverId, config) => api.sessions.create(serverId, config),
+      create: (serverIds, config) => api.sessions.create(serverIds, config),
       update: (sessionId, config) => api.sessions.update(sessionId, config),
       delete: (sessionId) => api.sessions.delete(sessionId),
     },

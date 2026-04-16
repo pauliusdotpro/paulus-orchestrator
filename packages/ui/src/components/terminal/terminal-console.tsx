@@ -21,7 +21,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const activeSession = activeSessionId ? sessions[activeSessionId] : null
-  const sessionId = activeSession?.serverId === serverId ? activeSession.id : null
+  const sessionId = activeSession?.serverIds.includes(serverId) ? activeSession.id : null
 
   useEffect(() => {
     let cancelled = false
@@ -119,7 +119,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
 
       let ensuredSessionId = sessionId
       if (!ensuredSessionId) {
-        ensuredSessionId = (await createSession(bridge, serverId)).id
+        ensuredSessionId = (await createSession(bridge, [serverId])).id
       }
 
       setHistory((prev) => [...prev, cmd])
@@ -180,13 +180,13 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
   }, [bridge, sessionId])
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 font-mono text-[13px]">
+    <div className="flex flex-col h-full bg-surface font-mono text-[13px]">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-800 bg-zinc-900/50">
-        <span className="text-xs text-zinc-400 font-sans font-medium">Terminal</span>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-edge-subtle bg-surface-alt/50">
+        <span className="text-xs text-fg-muted font-sans font-medium">Terminal</span>
         <button
           onClick={handleClear}
-          className="text-xs text-zinc-500 hover:text-zinc-300 font-sans px-1.5 py-0.5 rounded hover:bg-zinc-800"
+          className="text-xs text-fg-faint hover:text-fg-tertiary font-sans px-1.5 py-0.5 rounded hover:bg-surface-raised"
         >
           Clear
         </button>
@@ -198,7 +198,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
         onClick={() => inputRef.current?.focus()}
       >
         {lines.length === 0 && (
-          <p className="text-zinc-600 text-xs">Type a command below to execute on the server...</p>
+          <p className="text-fg-dim text-xs">Type a command below to execute on the server...</p>
         )}
         {lines.map((line) => (
           <div
@@ -210,7 +210,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
                   ? 'text-emerald-400'
                   : line.type === 'system'
                     ? 'text-yellow-400'
-                    : 'text-zinc-300'
+                    : 'text-fg-tertiary'
             }`}
           >
             {line.text}
@@ -223,7 +223,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
       {isConnected && (
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 px-3 py-2 border-t border-zinc-800 bg-zinc-900/30"
+          className="flex items-center gap-2 px-3 py-2 border-t border-edge-subtle bg-surface-alt/30"
         >
           <span className="text-emerald-400 select-none">$</span>
           <input
@@ -233,7 +233,7 @@ export function TerminalConsole({ serverId, isConnected }: TerminalConsoleProps)
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={running}
-            className="flex-1 bg-transparent text-zinc-100 outline-none placeholder-zinc-600 disabled:opacity-50"
+            className="flex-1 bg-transparent text-fg outline-none placeholder-fg-dim disabled:opacity-50"
             placeholder={running ? 'Running...' : 'Enter command...'}
             autoComplete="off"
             spellCheck={false}

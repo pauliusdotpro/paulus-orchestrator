@@ -22,10 +22,11 @@ interface ChatStore {
   modelOptions: ProviderStateMap<AIModelOption[]>
   modelLoadState: ProviderStateMap<'idle' | 'loading' | 'loaded' | 'error'>
   modelLoadErrors: ProviderStateMap<string>
+  messageQueue: string[]
 
   init(bridge: Bridge): void
   loadSessions(bridge: Bridge, serverId: string): Promise<void>
-  createSession(bridge: Bridge, serverId: string, config?: AISessionConfig): Promise<AISession>
+  createSession(bridge: Bridge, serverIds: string[], config?: AISessionConfig): Promise<AISession>
   updateSessionConfig(bridge: Bridge, sessionId: string, config: AISessionConfig): Promise<void>
   deleteSession(bridge: Bridge, sessionId: string): Promise<void>
   removeSessionsForServer(serverId: string): void
@@ -33,10 +34,58 @@ interface ChatStore {
   ensureDraftConfig(bridge: Bridge, serverId: string): Promise<void>
   setDraftConfig(serverId: string, config: AISessionConfig): void
   loadModels(bridge: Bridge, provider: AIProviderType): Promise<void>
-  sendMessage(bridge: Bridge, serverId: string, message: string): Promise<void>
+  sendMessage(bridge: Bridge, serverIds: string[], message: string): Promise<void>
+  interruptWithMessage(bridge: Bridge, serverIds: string[], message: string): Promise<void>
+  killSession(bridge: Bridge): Promise<void>
   approveCommand(bridge: Bridge, commandId: string): Promise<void>
   rejectCommand(bridge: Bridge, commandId: string): Promise<void>
+  queueMessage(message: string): void
+  dequeueMessage(): void
   handleAIEvent(event: AIEvent & { sessionId: string }): void
+}
+
+// ─── Streaming event buffer ─────────────────────────────────────────────────
+// Coalesces rapid streaming events into frame-paced state updates so React
+// re-renders at most once per animation frame instead of once per token.
+let _streamBuf: { textDelta: string; events: AIEvent[] } = { textDelta: '', events: [] }
+let _streamRafId = 0
+
+function _flushStreamBuffer(): void {
+  _streamRafId = 0
+  const { textDelta, events } = _streamBuf
+  _streamBuf = { textDelta: '', events: [] }
+  if (!textDelta && events.length === 0) return
+  useChatStore.setState((state) => ({
+    streamingText: state.streamingText + textDelta,
+    streamingEvents: [...state.streamingEvents, ...events],
+  }))
+}
+
+function _bufferStreamEvent(event: AIEvent): void {
+  if (event.type === 'text') {
+    _streamBuf.textDelta += event.text
+  }
+  _streamBuf.events.push(event)
+  if (!_streamRafId) {
+    _streamRafId = requestAnimationFrame(_flushStreamBuffer)
+  }
+}
+
+/** Flush pending events synchronously (used before finalizing a stream). */
+function _forceFlush(): void {
+  if (_streamRafId) {
+    cancelAnimationFrame(_streamRafId)
+    _flushStreamBuffer()
+  }
+}
+
+/** Discard pending events without applying them (used when streaming is aborted). */
+function _cancelPendingFlush(): void {
+  if (_streamRafId) {
+    cancelAnimationFrame(_streamRafId)
+    _streamRafId = 0
+  }
+  _streamBuf = { textDelta: '', events: [] }
 }
 
 async function getDefaultSessionConfig(bridge: Bridge): Promise<AISessionConfig> {
@@ -59,6 +108,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   modelOptions: {},
   modelLoadState: {},
   modelLoadErrors: {},
+  messageQueue: [],
 
   init(bridge) {
     if (get().initialized) return
@@ -78,14 +128,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const map: Record<string, AISession> = { ...get().sessions }
     // Merge: replace sessions for this server, keep others
     for (const key of Object.keys(map)) {
-      if (map[key].serverId === serverId) delete map[key]
+      if (map[key].serverIds.includes(serverId)) delete map[key]
     }
     for (const s of sessions) {
       map[s.id] = s
     }
     // Auto-select the most recent session for this server, or null
     const current = get().activeSessionId
-    const currentBelongsToServer = current && map[current]?.serverId === serverId
+    const currentBelongsToServer = current && map[current]?.serverIds.includes(serverId)
     const latest = sessions.sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     )[0]
@@ -98,13 +148,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     })
   },
 
-  async createSession(bridge, serverId, config) {
+  async createSession(bridge, serverIds, config) {
+    const primaryServerId = serverIds[0]
     const effectiveConfig =
-      config ?? get().draftConfigs[serverId] ?? (await getDefaultSessionConfig(bridge))
-    const session = await bridge.sessions.create(serverId, effectiveConfig)
+      config ?? get().draftConfigs[primaryServerId] ?? (await getDefaultSessionConfig(bridge))
+    const session = await bridge.sessions.create(serverIds, effectiveConfig)
     set((state) => ({
       sessions: { ...state.sessions, [session.id]: session },
-      draftConfigs: { ...state.draftConfigs, [serverId]: effectiveConfig },
+      draftConfigs: { ...state.draftConfigs, [primaryServerId]: effectiveConfig },
       activeSessionId: session.id,
     }))
     return session
@@ -114,13 +165,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const updated = await bridge.sessions.update(sessionId, config)
     set((state) => ({
       sessions: { ...state.sessions, [sessionId]: updated },
-      draftConfigs: { ...state.draftConfigs, [updated.serverId]: config },
+      draftConfigs: { ...state.draftConfigs, [updated.serverIds[0]]: config },
     }))
   },
 
   async deleteSession(bridge, sessionId) {
     const session = get().sessions[sessionId]
     if (!session) return
+    if (get().activeSessionId === sessionId) _cancelPendingFlush()
 
     await bridge.sessions.delete(sessionId)
 
@@ -132,8 +184,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return { sessions }
       }
 
+      const primaryServerId = session.serverIds[0]
       const nextActiveSession = Object.values(sessions)
-        .filter((candidate) => candidate.serverId === session.serverId)
+        .filter((candidate) => primaryServerId && candidate.serverIds.includes(primaryServerId))
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
 
       return {
@@ -149,13 +202,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   removeSessionsForServer(serverId) {
     set((state) => {
       const sessions = Object.fromEntries(
-        Object.entries(state.sessions).filter(([, session]) => session.serverId !== serverId),
+        Object.entries(state.sessions).filter(
+          ([, session]) => !session.serverIds.includes(serverId),
+        ),
       )
       const draftConfigs = { ...state.draftConfigs }
       delete draftConfigs[serverId]
       const activeSession =
         state.activeSessionId !== null ? state.sessions[state.activeSessionId] : null
-      const removedActiveSession = activeSession?.serverId === serverId
+      const removedActiveSession = activeSession?.serverIds.includes(serverId) ?? false
 
       return {
         sessions,
@@ -169,6 +224,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   setActiveSession(id) {
+    _cancelPendingFlush()
     set({ activeSessionId: id, streamingText: '', streamingEvents: [] })
   },
 
@@ -217,11 +273,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  async sendMessage(bridge, serverId, message) {
+  async sendMessage(bridge, serverIds, message) {
     const { activeSessionId, sessions } = get()
     if (!activeSessionId) return
     const session = sessions[activeSessionId]
-    if (!session || session.serverId !== serverId) return
+    if (!session) return
 
     // Add user message to local state
     const userMsg: AIMessage = {
@@ -247,7 +303,57 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
     })
 
-    await bridge.ai.send(serverId, activeSessionId, message)
+    await bridge.ai.send(serverIds, activeSessionId, message)
+  },
+
+  async interruptWithMessage(bridge, serverIds, message) {
+    const { activeSessionId } = get()
+    if (!activeSessionId) return
+
+    _forceFlush()
+
+    // Finalize partial response so it's preserved in history
+    set((state) => {
+      const session = state.sessions[activeSessionId]
+      if (!session || !state.isStreaming) {
+        return { isStreaming: false, streamingText: '', streamingEvents: [], messageQueue: [] }
+      }
+      const hasContent = state.streamingText || state.streamingEvents.length > 0
+      if (!hasContent) {
+        return { isStreaming: false, streamingText: '', streamingEvents: [], messageQueue: [] }
+      }
+      const assistantMsg: AIMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: state.streamingText,
+        events: state.streamingEvents,
+        timestamp: new Date().toISOString(),
+      }
+      return {
+        sessions: {
+          ...state.sessions,
+          [activeSessionId]: {
+            ...session,
+            messages: [...session.messages, assistantMsg],
+          },
+        },
+        isStreaming: false,
+        streamingText: '',
+        streamingEvents: [],
+        messageQueue: [],
+      }
+    })
+
+    await bridge.ai.kill(activeSessionId)
+    await get().sendMessage(bridge, serverIds, message)
+  },
+
+  async killSession(bridge) {
+    const { activeSessionId } = get()
+    if (!activeSessionId) return
+    _cancelPendingFlush()
+    set({ isStreaming: false, streamingText: '', streamingEvents: [], messageQueue: [] })
+    await bridge.ai.kill(activeSessionId)
   },
 
   async approveCommand(bridge, commandId) {
@@ -262,17 +368,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     await bridge.ai.reject(activeSessionId, commandId)
   },
 
+  queueMessage(message) {
+    set((state) => ({ messageQueue: [...state.messageQueue, message] }))
+  },
+
+  dequeueMessage() {
+    set((state) => ({ messageQueue: state.messageQueue.slice(1) }))
+  },
+
   handleAIEvent(event) {
     const { activeSessionId } = get()
     if (event.sessionId !== activeSessionId) return
 
     switch (event.type) {
       case 'text':
-        set((state) => ({
-          streamingText: state.streamingText + event.text,
-          streamingEvents: [...state.streamingEvents, event],
-        }))
-        break
       case 'thinking':
       case 'tool_state':
       case 'tool_call':
@@ -282,13 +391,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       case 'command_output':
       case 'command_done':
       case 'error':
-        set((state) => ({
-          streamingEvents: [...state.streamingEvents, event],
-        }))
+        _bufferStreamEvent(event)
         break
       case 'done':
+        // Flush any buffered events before finalizing
+        _forceFlush()
         // Finalize streaming text as an assistant message
         set((state) => {
+          // If streaming was already cleared (e.g. by kill), skip finalization
+          if (!state.isStreaming) return state
           const session = state.sessions[activeSessionId!]
           if (!session) return { isStreaming: false, streamingText: '', streamingEvents: [] }
           const assistantMsg: AIMessage = {
