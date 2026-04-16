@@ -57,10 +57,7 @@ export function ChatView({ serverId, isConnected, connectionStatus }: ChatViewPr
   const runtime = useAssistantRuntime(sessionServerIds)
   const sessionForServer = activeSession?.serverIds.includes(serverId) ? activeSession : null
   const serverNamesList = useMemo(
-    () =>
-      sessionServerIds
-        .map((id) => servers.find((s) => s.id === id)?.name ?? id)
-        .join(', '),
+    () => sessionServerIds.map((id) => servers.find((s) => s.id === id)?.name ?? id).join(', '),
     [sessionServerIds, servers],
   )
   const selectedConfig: AISessionConfig | null = sessionForServer
@@ -105,7 +102,13 @@ export function ChatView({ serverId, isConnected, connectionStatus }: ChatViewPr
           </div>
         ) : null}
 
-        <Thread serverId={serverId} isConnected={isConnected} isMultiServer={isMultiServer} debugMode={debugMode} setDebugMode={setDebugMode} />
+        <Thread
+          serverId={serverId}
+          isConnected={isConnected}
+          isMultiServer={isMultiServer}
+          debugMode={debugMode}
+          setDebugMode={setDebugMode}
+        />
       </div>
     </AssistantRuntimeProvider>
   )
@@ -148,7 +151,13 @@ function Thread({
       {debugMode && <SessionDebugPanel />}
 
       <PendingCommandBar isConnected={isConnected} />
-      <Composer serverId={serverId} isConnected={isConnected} isMultiServer={isMultiServer} debugMode={debugMode} setDebugMode={setDebugMode} />
+      <Composer
+        serverId={serverId}
+        isConnected={isConnected}
+        isMultiServer={isMultiServer}
+        debugMode={debugMode}
+        setDebugMode={setDebugMode}
+      />
     </ThreadPrimitive.Root>
   )
 }
@@ -206,7 +215,13 @@ function SessionDebugPanel() {
           messages: session.messages,
         }
       : null,
-    streaming: isStreaming ? { textLength: streamingText.length, eventCount: streamingEvents.length, events: streamingEvents } : null,
+    streaming: isStreaming
+      ? {
+          textLength: streamingText.length,
+          eventCount: streamingEvents.length,
+          events: streamingEvents,
+        }
+      : null,
   }
 
   return (
@@ -292,13 +307,14 @@ function PendingCommandBar({ isConnected }: { isConnected: boolean }) {
         )}
       </div>
       {pendingCommands.map((cmd) => (
-        <div key={cmd.id} className="rounded-lg border border-amber-900/50 bg-surface/40 px-3 py-2.5">
+        <div
+          key={cmd.id}
+          className="rounded-lg border border-amber-900/50 bg-surface/40 px-3 py-2.5"
+        >
           <pre className="text-sm text-fg overflow-x-auto whitespace-pre-wrap mb-1.5">
             <code>{cmd.command}</code>
           </pre>
-          {cmd.explanation && (
-            <p className="text-xs text-fg-muted mb-2">{cmd.explanation}</p>
-          )}
+          {cmd.explanation && <p className="text-xs text-fg-muted mb-2">{cmd.explanation}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() => approveCommand(bridge, cmd.id)}
@@ -317,9 +333,7 @@ function PendingCommandBar({ isConnected }: { isConnected: boolean }) {
           </div>
         </div>
       ))}
-      {!isConnected && (
-        <span className="text-[11px] text-fg-faint">Reconnect to approve.</span>
-      )}
+      {!isConnected && <span className="text-[11px] text-fg-faint">Reconnect to approve.</span>}
     </div>
   )
 }
@@ -381,9 +395,7 @@ function Composer({
           </div>
           <div className="flex items-center gap-1.5">
             {messageQueue.length > 0 && (
-              <span className="text-[11px] text-fg-faint mr-0.5">
-                {messageQueue.length} queued
-              </span>
+              <span className="text-[11px] text-fg-faint mr-0.5">{messageQueue.length} queued</span>
             )}
             {isStreaming ? (
               <div className="flex items-center gap-1.5">
@@ -404,7 +416,16 @@ function Composer({
                   className="flex items-center gap-1 rounded-lg bg-surface-active px-3 py-1.5 text-xs font-medium text-fg-tertiary transition-colors hover:bg-surface-strong disabled:opacity-25 disabled:cursor-not-allowed"
                 >
                   Queue
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M12 5v14" />
                     <path d="m5 12 7 7 7-7" />
                   </svg>
@@ -415,7 +436,16 @@ function Composer({
                   className="flex items-center gap-1.5 rounded-lg bg-surface-invert px-3 py-1.5 text-xs font-medium text-fg-invert transition-colors hover:bg-white disabled:opacity-25 disabled:cursor-not-allowed"
                 >
                   Send
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M5 12h14" />
                     <path d="m12 5 7 7-7 7" />
                   </svg>
@@ -427,7 +457,16 @@ function Composer({
                 className="flex items-center gap-1.5 rounded-lg bg-surface-invert px-3.5 py-1.5 text-xs font-medium text-fg-invert transition-colors hover:bg-white disabled:opacity-25 disabled:cursor-not-allowed"
               >
                 Send
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
                 </svg>

@@ -369,7 +369,9 @@ function AIProviderTab({
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">AI Provider</h3>
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">
+          AI Provider
+        </h3>
         <p className="text-sm text-fg-faint mt-1">
           Choose the default backend for new chat sessions. Active chats can override provider and
           model directly in the composer.
@@ -621,7 +623,9 @@ function DataStorageTab({
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Data Storage</h3>
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">
+          Data Storage
+        </h3>
         <p className="text-sm text-fg-faint mt-1">
           Make storage behavior explicit and export everything when needed.
         </p>

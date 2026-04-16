@@ -97,8 +97,8 @@ export function buildServerCommandToolState(
     serverName?: string
   },
 ): AIToolState {
-  const serverName = input.serverName ?? input.metadata?.serverName as string | undefined
-  const serverId = input.serverId ?? input.metadata?.serverId as string | undefined
+  const serverName = input.serverName ?? (input.metadata?.serverName as string | undefined)
+  const serverId = input.serverId ?? (input.metadata?.serverId as string | undefined)
   return {
     id: input.id,
     toolName: PAULUS_SERVER_COMMAND_TOOL,

@@ -105,7 +105,9 @@ export function SessionList() {
               <div
                 key={session.id}
                 className={`group flex items-stretch gap-1 rounded-md transition-colors min-w-0 ${
-                  activeSessionId === session.id ? 'bg-surface-raised' : 'hover:bg-surface-raised/50'
+                  activeSessionId === session.id
+                    ? 'bg-surface-raised'
+                    : 'hover:bg-surface-raised/50'
                 }`}
               >
                 <button
@@ -118,9 +120,7 @@ export function SessionList() {
                 >
                   <div className="text-sm truncate">{getSessionPreview(session)}</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-fg-dim">
-                      {formatTime(session.updatedAt)}
-                    </span>
+                    <span className="text-xs text-fg-dim">{formatTime(session.updatedAt)}</span>
                     {isMultiServer && (
                       <span
                         className="text-[10px] text-fg-faint bg-surface-raised px-1.5 py-0.5 rounded"

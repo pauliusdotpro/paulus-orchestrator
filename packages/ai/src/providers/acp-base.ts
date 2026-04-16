@@ -357,8 +357,7 @@ export abstract class AcpBaseProvider implements AIProvider {
 
       // Options may live at params.options or permission.options depending on agent
       const allowOption =
-        this.findPermissionOption(permission, 'allow') ??
-        this.findPermissionOption(params, 'allow')
+        this.findPermissionOption(permission, 'allow') ?? this.findPermissionOption(params, 'allow')
       const rejectOption =
         this.findPermissionOption(permission, 'reject') ??
         this.findPermissionOption(params, 'reject')
@@ -378,7 +377,9 @@ export abstract class AcpBaseProvider implements AIProvider {
         // For Paulus tools, always grant permission. Try the matched allow option
         // first, then fall back to any available option (agents use varying names).
         const option =
-          allowOption ?? this.findFirstPermissionOption(permission) ?? this.findFirstPermissionOption(params)
+          allowOption ??
+          this.findFirstPermissionOption(permission) ??
+          this.findFirstPermissionOption(params)
         if (option) {
           return Promise.resolve({
             outcome: {
@@ -882,9 +883,7 @@ export abstract class AcpBaseProvider implements AIProvider {
     }
   }
 
-  private findFirstPermissionOption(
-    permission: any,
-  ): { optionId: string; kind?: string } | null {
+  private findFirstPermissionOption(permission: any): { optionId: string; kind?: string } | null {
     const options: Array<{ optionId?: string; kind?: string }> = Array.isArray(permission?.options)
       ? permission.options
       : []

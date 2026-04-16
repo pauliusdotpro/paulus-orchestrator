@@ -133,7 +133,9 @@ function registerTools(mcpServer: McpServer, options: McpToolServerOptions): voi
           }
         }
 
-        console.log(`[MCP] paulus_exec_server_command: server=${matched.name} command=${command.slice(0, 120)}`)
+        console.log(
+          `[MCP] paulus_exec_server_command: server=${matched.name} command=${command.slice(0, 120)}`,
+        )
         const result = await options.executeCommand(matched.name, command)
         return {
           content: [

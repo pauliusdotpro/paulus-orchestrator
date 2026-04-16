@@ -111,7 +111,16 @@ export function useAssistantRuntime(serverIds: string[]) {
       }
       await sendMessage(bridge, serverIds, text)
     },
-    [activeSessionId, bridge, createSession, sendMessage, interruptWithMessage, isStreaming, queueMessage, serverIds],
+    [
+      activeSessionId,
+      bridge,
+      createSession,
+      sendMessage,
+      interruptWithMessage,
+      isStreaming,
+      queueMessage,
+      serverIds,
+    ],
   )
 
   return useExternalStoreRuntime({

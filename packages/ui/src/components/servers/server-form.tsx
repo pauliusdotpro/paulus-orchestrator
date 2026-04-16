@@ -254,7 +254,9 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
             disabled={!autoConnectAvailable}
             className="rounded border-edge-strong bg-surface-raised"
           />
-          <span className={`text-sm ${autoConnectAvailable ? 'text-fg-tertiary' : 'text-fg-faint'}`}>
+          <span
+            className={`text-sm ${autoConnectAvailable ? 'text-fg-tertiary' : 'text-fg-faint'}`}
+          >
             Auto-connect on launch
           </span>
         </label>

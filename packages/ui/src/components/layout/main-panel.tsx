@@ -282,7 +282,9 @@ function PanelToggleButton({
       onClick={onClick}
       title={title}
       className={`p-1.5 rounded transition-colors ${
-        active ? 'bg-surface-active text-fg-secondary' : 'text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised'
+        active
+          ? 'bg-surface-active text-fg-secondary'
+          : 'text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised'
       }`}
     >
       {children}
