@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { DEFAULT_SERVER_CATEGORY, type ServerConfig } from '@paulus/shared'
 import type { CredentialStore } from '../credentials'
 import type { RuntimeEventSink } from '../events'
+import type { SessionManager } from '../session-manager'
 import type { StorageService } from '../storage'
 import type { TerminalSessionManager } from '../terminal-session-manager'
 import { ConnectionPool } from './connection-pool'
@@ -18,6 +19,7 @@ export class ServerManager {
     private readonly storage: StorageService,
     private readonly credentials: CredentialStore,
     private readonly terminalSessions: TerminalSessionManager,
+    private readonly sessions: SessionManager,
     eventSink: RuntimeEventSink,
   ) {
     this.pool = new ConnectionPool(eventSink)
@@ -237,6 +239,9 @@ export class ServerManager {
   async remove(id: string): Promise<void> {
     await this.pool.disconnect(id)
     await this.credentials.removePassword(id)
+    // Remove the server's chat sessions and per-session terminal state so they
+    // don't accumulate forever in {userData}/data/ after the server is gone.
+    await this.sessions.deleteForServer(id)
     this.servers = this.servers.filter((server) => server.id !== id)
     await this.persistServers()
   }

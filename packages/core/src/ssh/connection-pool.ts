@@ -11,6 +11,10 @@ export interface ExecResult {
 
 export class ConnectionPool {
   private readonly connections = new Map<string, Client>()
+  // Tracks clients being intentionally torn down so their async 'close' event
+  // does not delete a newly registered connection or emit a spurious
+  // 'disconnected' status after the user already moved on.
+  private readonly terminating = new WeakSet<Client>()
 
   constructor(private readonly eventSink: RuntimeEventSink) {}
 
@@ -35,7 +39,9 @@ export class ConnectionPool {
       })
 
       client.on('error', (err: Error) => {
-        this.connections.delete(config.id)
+        if (this.connections.get(config.id) === client) {
+          this.connections.delete(config.id)
+        }
         this.emitStatus({
           serverId: config.id,
           status: 'error',
@@ -45,8 +51,15 @@ export class ConnectionPool {
       })
 
       client.on('close', () => {
-        this.connections.delete(config.id)
-        this.emitStatus({ serverId: config.id, status: 'disconnected' })
+        // Only react if this client is still the active one for the server;
+        // otherwise the entry has been replaced by a reconnect or an
+        // intentional tear-down has already updated state.
+        if (this.connections.get(config.id) === client) {
+          this.connections.delete(config.id)
+        }
+        if (!this.terminating.has(client)) {
+          this.emitStatus({ serverId: config.id, status: 'disconnected' })
+        }
       })
 
       const connectConfig: {
@@ -100,10 +113,22 @@ export class ConnectionPool {
 
   async disconnect(serverId: string): Promise<void> {
     const client = this.connections.get(serverId)
-    if (client) {
+    if (!client) return
+
+    this.terminating.add(client)
+    this.connections.delete(serverId)
+
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const finish = (): void => {
+        if (settled) return
+        settled = true
+        resolve()
+      }
+      client.once('close', finish)
+      client.once('error', finish)
       client.end()
-      this.connections.delete(serverId)
-    }
+    })
   }
 
   isConnected(serverId: string): boolean {
@@ -137,7 +162,10 @@ export class ConnectionPool {
         })
 
         stream.on('close', (code: number | undefined) => {
-          resolve({ stdout, stderr, exitCode: code ?? 0 })
+          // A null/undefined exit code means the process was killed by a signal
+          // (or never produced one). Reporting that as 0 would tell the model
+          // the command succeeded. Surface it as a non-zero failure instead.
+          resolve({ stdout, stderr, exitCode: code ?? 1 })
         })
       })
     })
@@ -145,6 +173,7 @@ export class ConnectionPool {
 
   disconnectAll(): void {
     for (const [id, client] of this.connections) {
+      this.terminating.add(client)
       client.end()
       this.connections.delete(id)
     }

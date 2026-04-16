@@ -2,7 +2,14 @@ import { execFile, execFileSync } from 'child_process'
 import { randomUUID } from 'crypto'
 import { tmpdir } from 'os'
 import type { AIEvent, AIModelOption } from '@paulus/shared'
-import type { AIProvider, AIProcess, AIContext, AIRunOptions } from '../provider'
+import { PAULUS_VERSION } from '@paulus/shared'
+import type {
+  AIProvider,
+  AIProcess,
+  AIContext,
+  AIRunOptions,
+  AICommandResolution,
+} from '../provider'
 import { AcpClient } from '../acp-client'
 import { buildSystemPrompt } from '../context'
 import { PaulusMcpServer } from '../paulus-mcp-server'
@@ -77,7 +84,7 @@ export abstract class AcpBaseProvider implements AIProvider {
     try {
       await client.request('initialize', {
         protocolVersion: 1,
-        clientInfo: { name: 'paulus-orchestrator', version: '0.3.3' },
+        clientInfo: { name: 'paulus-orchestrator', version: PAULUS_VERSION },
         clientCapabilities: {
           fs: { readTextFile: false, writeTextFile: false },
           terminal: false,
@@ -444,7 +451,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         console.log(`[${this.name}] Sending initialize...`)
         const initResult = await client.request('initialize', {
           protocolVersion: 1,
-          clientInfo: { name: 'paulus-orchestrator', version: '0.3.3' },
+          clientInfo: { name: 'paulus-orchestrator', version: PAULUS_VERSION },
           clientCapabilities: {
             fs: { readTextFile: false, writeTextFile: false },
             terminal: false,
@@ -529,33 +536,28 @@ export abstract class AcpBaseProvider implements AIProvider {
     return {
       events,
 
-      write(input: string) {
-        // Resolve the most recent pending tool call with the command result.
-        // Called by the orchestrator after SSH execution or rejection.
-        //
-        // For approval: "Command completed (exit X):\nSTDOUT:\n...\nSTDERR:\n..."
-        // For rejection: "Command rejected by user"
-
-        // Find the oldest pending tool call
+      write(input: AICommandResolution) {
+        // Resolve the oldest pending tool call with the structured result.
+        // The orchestrator passes the original { exitCode, stdout, stderr }
+        // straight through so we never re-parse a formatted preview string —
+        // a stdout payload that contains the literal "STDERR:" marker would
+        // otherwise truncate the output we hand back to the model.
         const firstEntry = pendingToolCalls.entries().next()
         if (firstEntry.done) return
 
         const [cmdId, pending] = firstEntry.value
         pendingToolCalls.delete(cmdId)
 
-        if (input.includes('Command rejected')) {
-          pending.reject(new Error('Command rejected by user'))
-        } else {
-          const exitMatch = input.match(/exit\s+(\d+)/)
-          const stdoutMatch = input.match(/STDOUT:\n([\s\S]*?)(?=\nSTDERR:|$)/)
-          const stderrMatch = input.match(/STDERR:\n([\s\S]*)$/)
-
-          pending.resolve({
-            exitCode: exitMatch ? parseInt(exitMatch[1]) : 0,
-            stdout: stdoutMatch ? stdoutMatch[1].trim() : input,
-            stderr: stderrMatch ? stderrMatch[1].trim() : '',
-          })
+        if (input.kind === 'rejected') {
+          pending.reject(new Error(input.reason ?? 'Command rejected by user'))
+          return
         }
+
+        pending.resolve({
+          exitCode: input.exitCode,
+          stdout: input.stdout,
+          stderr: input.stderr,
+        })
       },
 
       kill() {

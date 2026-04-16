@@ -6,7 +6,6 @@ import {
   buildServerCommandToolState,
   createCommandToolOutput,
   createProvider,
-  formatCommandResultForModel,
   toolStateEvent,
 } from '@paulus/ai'
 import type { ServerManager } from './ssh/server-manager'
@@ -227,7 +226,12 @@ export class AIOrchestrator {
       // Feed output back to AI if process is still active
       const run = this.activeRuns.get(sessionId)
       if (run) {
-        run.process.write(formatCommandResultForModel(result))
+        run.process.write({
+          kind: 'result',
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        })
       }
     } catch (err: any) {
       this.emitAIEvent(
@@ -248,13 +252,12 @@ export class AIOrchestrator {
 
       const run = this.activeRuns.get(sessionId)
       if (run) {
-        run.process.write(
-          formatCommandResultForModel({
-            exitCode: 1,
-            stdout: '',
-            stderr: `Command failed on ${pending.serverName}: ${err.message}`,
-          }),
-        )
+        run.process.write({
+          kind: 'result',
+          exitCode: 1,
+          stdout: '',
+          stderr: `Command failed on ${pending.serverName}: ${err.message}`,
+        })
       }
     }
   }
@@ -266,7 +269,7 @@ export class AIOrchestrator {
     // Feed rejection back to AI process (needed for ACP providers to unblock pending tool calls)
     const run = this.activeRuns.get(sessionId)
     if (run) {
-      run.process.write('Command rejected by user')
+      run.process.write({ kind: 'rejected', reason: 'Command rejected by user' })
     }
 
     this.emitAIEvent(

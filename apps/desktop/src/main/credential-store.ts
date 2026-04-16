@@ -13,6 +13,13 @@ interface StoredCredentials {
 
 interface CredentialMetadata {
   mode: PasswordStorageMode
+  // Set when a setMode() migration writes the new-format credentials but the
+  // app exits before the mode flag is committed. On next read we treat the
+  // pending mode as canonical because the on-disk credentials are already in
+  // that format — without this marker, getMode() would report the stale mode
+  // and the matching store would either fail to decrypt or return ciphertext
+  // as if it were plaintext.
+  pendingMigrationTo?: PasswordStorageMode
 }
 
 interface SafeStorageAdapter {
@@ -169,6 +176,16 @@ export class DesktopCredentialStoreManager implements CredentialStore {
 
   async getMode(): Promise<PasswordStorageMode> {
     const metadata = await this.storage.get<CredentialMetadata>(CREDENTIALS_META_KEY)
+
+    if (metadata?.pendingMigrationTo) {
+      // setMode() was interrupted between writing the new-format credentials
+      // and committing the new mode flag. The on-disk data is already in the
+      // pending format, so finish the migration by promoting the marker.
+      const completed = metadata.pendingMigrationTo
+      await this.storage.set<CredentialMetadata>(CREDENTIALS_META_KEY, { mode: completed })
+      return completed
+    }
+
     if (metadata?.mode) {
       return metadata.mode
     }
@@ -212,6 +229,14 @@ export class DesktopCredentialStoreManager implements CredentialStore {
     const currentStore = this.getStore(currentMode)
     const passwords = await currentStore.exportAll()
 
+    // Mark the migration as in-flight before overwriting credentials so a
+    // crash between the data write and the mode commit can still be recovered
+    // by getMode() — without this, the mode flag would say `currentMode` but
+    // the on-disk data would already be in the new format.
+    await this.storage.set<CredentialMetadata>(CREDENTIALS_META_KEY, {
+      mode: currentMode,
+      pendingMigrationTo: mode,
+    })
     await nextStore.importAll(passwords)
     await this.storage.set<CredentialMetadata>(CREDENTIALS_META_KEY, { mode })
   }

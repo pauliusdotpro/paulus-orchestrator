@@ -4,6 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { DEFAULT_SERVER_CATEGORY } from '@paulus/shared'
 import { noopRuntimeEventSink } from '../events'
+import { SessionManager } from '../session-manager'
 import { StorageService } from '../storage'
 import { TerminalSessionManager } from '../terminal-session-manager'
 import { ServerManager } from './server-manager'
@@ -12,6 +13,7 @@ describe('ServerManager connection behavior', () => {
   let basePath
   let storage
   let terminalSessions
+  let sessions
   let passwordLookups
   let credentials
   let manager
@@ -21,6 +23,7 @@ describe('ServerManager connection behavior', () => {
     storage = new StorageService(basePath)
     await storage.init()
     terminalSessions = new TerminalSessionManager(storage)
+    sessions = new SessionManager(storage, terminalSessions)
     passwordLookups = []
     credentials = {
       savePassword: async () => {},
@@ -30,7 +33,13 @@ describe('ServerManager connection behavior', () => {
       },
       removePassword: async () => {},
     }
-    manager = new ServerManager(storage, credentials, terminalSessions, noopRuntimeEventSink)
+    manager = new ServerManager(
+      storage,
+      credentials,
+      terminalSessions,
+      sessions,
+      noopRuntimeEventSink,
+    )
   })
 
   afterEach(async () => {

@@ -42,6 +42,16 @@ describe('execution-scope', () => {
     expect(detectExecutionScope('on my local macos run ps aux')).toBe('local')
   })
 
+  test('treats bare "workspace" mentions about the remote server as remote scope', () => {
+    expect(detectExecutionScope('check the workspace directory on the server')).toBe('remote')
+    expect(detectExecutionScope('list workspace files in /var/app')).toBe('remote')
+  })
+
+  test('still recognizes possessive workspace phrasing as local scope', () => {
+    expect(detectExecutionScope('open my workspace and run tests')).toBe('local')
+    expect(detectExecutionScope('build the current workspace')).toBe('local')
+  })
+
   test('recognizes local shell tool names separately from remote server tools', () => {
     expect(isLocalShellToolName('bash')).toBe(true)
     expect(isLocalShellToolName('terminal/execute')).toBe(true)
