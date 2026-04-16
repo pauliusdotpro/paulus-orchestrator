@@ -1,4 +1,4 @@
-import { app, type BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { createPaulusRuntime, type PaulusRuntime, type RuntimeEventSink } from '@paulus/core'
 import { AppDataManager } from './app-data-manager'
@@ -8,16 +8,23 @@ export interface DesktopPaulusRuntime extends PaulusRuntime {
   appData: AppDataManager
 }
 
-export async function createDesktopRuntime(win: BrowserWindow): Promise<DesktopPaulusRuntime> {
+function broadcast(channel: string, payload: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (window.isDestroyed()) continue
+    window.webContents.send(channel, payload)
+  }
+}
+
+export async function createDesktopRuntime(): Promise<DesktopPaulusRuntime> {
   const eventSink: RuntimeEventSink = {
     emitAIEvent(event) {
-      win.webContents.send('ai:event', event)
+      broadcast('ai:event', event)
     },
     emitSSHOutput(event) {
-      win.webContents.send('ssh:output', event)
+      broadcast('ssh:output', event)
     },
     emitConnectionStatus(status) {
-      win.webContents.send('server:connection-status', status)
+      broadcast('server:connection-status', status)
     },
   }
 

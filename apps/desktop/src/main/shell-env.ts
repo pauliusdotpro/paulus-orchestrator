@@ -1,4 +1,4 @@
-import { spawnSync } from 'child_process'
+import { spawn } from 'child_process'
 
 const SHELL_ENV_TIMEOUT_MS = 5000
 const SHELL_ENV_COMMAND = 'env -0'
@@ -8,7 +8,9 @@ type ShellEnvProbe =
   | { type: 'Timeout' }
   | { type: 'Unavailable' }
 
-type ShellEnvMode = '-il' | '-l'
+type ShellEnvMode = '-il'
+
+let shellEnvSyncPromise: Promise<void> | null = null
 
 export function getDesktopUserShell(): string {
   return process.env['SHELL'] || '/bin/sh'
@@ -48,49 +50,84 @@ export function mergeDesktopShellEnv(
   return merged
 }
 
-function probeDesktopShellEnv(shell: string, mode: ShellEnvMode): ShellEnvProbe {
-  const result = spawnSync(shell, buildDesktopShellEnvArgs(mode), {
-    env: process.env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: SHELL_ENV_TIMEOUT_MS,
-    windowsHide: true,
+async function probeDesktopShellEnv(shell: string, mode: ShellEnvMode): Promise<ShellEnvProbe> {
+  return new Promise((resolve) => {
+    const child = spawn(shell, buildDesktopShellEnvArgs(mode), {
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+
+    const stdoutChunks: Buffer[] = []
+    const stderrChunks: Buffer[] = []
+    let settled = false
+
+    const finish = (probe: ShellEnvProbe): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeoutId)
+      resolve(probe)
+    }
+
+    const timeoutId = setTimeout(() => {
+      child.kill('SIGKILL')
+      finish({ type: 'Timeout' })
+    }, SHELL_ENV_TIMEOUT_MS)
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdoutChunks.push(chunk)
+    })
+
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderrChunks.push(chunk)
+    })
+
+    child.on('error', (error) => {
+      console.warn(`Failed to load shell environment from ${shell} ${mode}: ${error.message}`)
+      finish({ type: 'Unavailable' })
+    })
+
+    child.on('close', (code) => {
+      if (settled) {
+        return
+      }
+
+      if (code !== 0) {
+        const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
+        console.warn(
+          stderr
+            ? `Failed to load shell environment from ${shell} ${mode}: ${stderr}`
+            : `Failed to load shell environment from ${shell} ${mode}: exit code ${code}`,
+        )
+        finish({ type: 'Unavailable' })
+        return
+      }
+
+      const shellEnv = parseDesktopShellEnv(Buffer.concat(stdoutChunks))
+      if (Object.keys(shellEnv).length === 0) {
+        console.warn(
+          `Failed to load shell environment from ${shell} ${mode}: shell returned no variables.`,
+        )
+        finish({ type: 'Unavailable' })
+        return
+      }
+
+      if (!shellEnv['PATH']) {
+        console.warn(
+          `Failed to load shell environment from ${shell} ${mode}: shell returned no PATH.`,
+        )
+        finish({ type: 'Unavailable' })
+        return
+      }
+
+      finish({ type: 'Loaded', value: shellEnv })
+    })
   })
-
-  const error = result.error as NodeJS.ErrnoException | undefined
-  if (error) {
-    if (error.code === 'ETIMEDOUT') return { type: 'Timeout' }
-    console.warn(`Failed to load shell environment from ${shell} ${mode}: ${error.message}`)
-    return { type: 'Unavailable' }
-  }
-
-  if (result.status !== 0) {
-    const stderr = result.stderr.toString('utf8').trim()
-    console.warn(
-      stderr
-        ? `Failed to load shell environment from ${shell} ${mode}: ${stderr}`
-        : `Failed to load shell environment from ${shell} ${mode}: exit code ${result.status}`,
-    )
-    return { type: 'Unavailable' }
-  }
-
-  const shellEnv = parseDesktopShellEnv(result.stdout)
-  if (Object.keys(shellEnv).length === 0) {
-    console.warn(
-      `Failed to load shell environment from ${shell} ${mode}: shell returned no variables.`,
-    )
-    return { type: 'Unavailable' }
-  }
-
-  if (!shellEnv['PATH']) {
-    console.warn(`Failed to load shell environment from ${shell} ${mode}: shell returned no PATH.`)
-    return { type: 'Unavailable' }
-  }
-
-  return { type: 'Loaded', value: shellEnv }
 }
 
-export function loadDesktopShellEnv(shell: string): Record<string, string> | null {
-  const interactive = probeDesktopShellEnv(shell, '-il')
+export async function loadDesktopShellEnv(shell: string): Promise<Record<string, string> | null> {
+  const interactive = await probeDesktopShellEnv(shell, '-il')
+
   if (interactive.type === 'Loaded') {
     return interactive.value
   }
@@ -102,23 +139,24 @@ export function loadDesktopShellEnv(shell: string): Record<string, string> | nul
     return null
   }
 
-  const login = probeDesktopShellEnv(shell, '-l')
-  if (login.type === 'Loaded') {
-    return login.value
-  }
-
   console.warn(`Shell environment probe failed for ${shell}. Using app environment.`)
   return null
 }
 
-export function syncDesktopShellEnv(): void {
+export async function ensureDesktopShellEnv(): Promise<void> {
   if (process.platform !== 'darwin') {
     return
   }
 
-  const shell = getDesktopUserShell()
-  const env = mergeDesktopShellEnv(loadDesktopShellEnv(shell), process.env)
-  for (const [key, value] of Object.entries(env)) {
-    process.env[key] = value
+  if (!shellEnvSyncPromise) {
+    shellEnvSyncPromise = (async () => {
+      const shell = getDesktopUserShell()
+      const env = mergeDesktopShellEnv(await loadDesktopShellEnv(shell), process.env)
+      for (const [key, value] of Object.entries(env)) {
+        process.env[key] = value
+      }
+    })()
   }
+
+  await shellEnvSyncPromise
 }

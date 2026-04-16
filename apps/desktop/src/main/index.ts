@@ -1,8 +1,9 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
-import { registerIPCHandlers } from './ipc'
+import { registerIPCHandlers, warmDesktopRuntime } from './ipc'
 import { initLogger } from './logger'
-import { syncDesktopShellEnv } from './shell-env'
+import { ensureDesktopShellEnv } from './shell-env'
+import { bootstrapDesktopApp } from './startup'
 import { initUpdater } from './updater'
 
 const isDev = !app.isPackaged
@@ -23,8 +24,6 @@ async function createWindow(): Promise<BrowserWindow> {
       sandbox: false,
     },
   })
-
-  await registerIPCHandlers(win)
 
   if (isDev) {
     // Forward main process logs to renderer DevTools console
@@ -54,11 +53,15 @@ async function createWindow(): Promise<BrowserWindow> {
 }
 
 app.whenReady().then(async () => {
-  if (app.isPackaged) {
-    syncDesktopShellEnv()
-  }
-
-  await createWindow()
+  await bootstrapDesktopApp({
+    isPackaged: app.isPackaged,
+    registerIPCHandlers,
+    warmRuntime: warmDesktopRuntime,
+    warmShellEnv: ensureDesktopShellEnv,
+    createWindow: async () => {
+      await createWindow()
+    },
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
