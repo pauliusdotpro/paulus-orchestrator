@@ -78,7 +78,7 @@ export function buildInspectionInstruction(prompt: string): string | null {
     return (
       'MANDATORY TOOL USE FOR THIS REQUEST: ' +
       `${scopeInstruction} ` +
-      'Call paulus_exec_server_command with exactly "cat /etc/os-release && uname -srmo" before any answer. ' +
+      'Call paulus_exec_server_command with the target server name and command "cat /etc/os-release && uname -srmo" before any answer. ' +
       'Do not answer from local runtime context. An answer without that tool result is invalid.'
     )
   }

@@ -50,9 +50,10 @@ export interface Bridge {
   }
 
   ai: {
-    send(serverId: string, sessionId: string, message: string): Promise<void>
+    send(serverIds: string[], sessionId: string, message: string): Promise<void>
     approve(sessionId: string, commandId: string): Promise<void>
     reject(sessionId: string, commandId: string): Promise<void>
+    kill(sessionId: string): Promise<void>
     getProviders(): Promise<AIProviderConfig[]>
     getModels(provider: AIProviderType): Promise<AIModelOption[]>
     onEvent(cb: (event: AIEvent & { sessionId: string }) => void): () => void
@@ -61,7 +62,7 @@ export interface Bridge {
   sessions: {
     list(serverId: string): Promise<AISession[]>
     get(sessionId: string): Promise<AISession>
-    create(serverId: string, config: AISessionConfig): Promise<AISession>
+    create(serverIds: string[], config: AISessionConfig): Promise<AISession>
     update(sessionId: string, config: AISessionConfig): Promise<AISession>
     delete(sessionId: string): Promise<void>
   }

@@ -13,8 +13,8 @@ export function ServerColorPicker({ value, onChange }: ServerColorPickerProps) {
         onClick={() => onChange(undefined)}
         aria-label="No color"
         aria-pressed={!value}
-        className={`h-6 w-6 rounded-full border flex items-center justify-center text-zinc-500 hover:text-zinc-300 ${
-          !value ? 'border-zinc-300' : 'border-zinc-700'
+        className={`h-6 w-6 rounded-full border flex items-center justify-center text-fg-faint hover:text-fg-tertiary ${
+          !value ? 'border-zinc-300' : 'border-edge'
         }`}
       >
         <svg

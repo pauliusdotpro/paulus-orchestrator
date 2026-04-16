@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, nativeTheme } from 'electron'
 import { createDesktopRuntime, type DesktopPaulusRuntime } from './runtime'
 import { testAIProvider } from './provider-self-test'
 import { ensureDesktopShellEnv } from './shell-env'
@@ -80,15 +80,18 @@ export function registerIPCHandlers(): void {
   )
 
   // AI
-  ipcMain.handle('ai:send', async (_, { serverId, sessionId, message }) => {
+  ipcMain.handle('ai:send', async (_, { serverIds, sessionId, message }) => {
     await ensureDesktopShellEnv()
-    return withRuntime(({ aiOrchestrator }) => aiOrchestrator.send(serverId, sessionId, message))
+    return withRuntime(({ aiOrchestrator }) => aiOrchestrator.send(serverIds, sessionId, message))
   })
   ipcMain.handle('ai:approve', (_, { sessionId, commandId }) =>
     withRuntime(({ aiOrchestrator }) => aiOrchestrator.approve(sessionId, commandId)),
   )
   ipcMain.handle('ai:reject', (_, { sessionId, commandId }) =>
     withRuntime(({ aiOrchestrator }) => aiOrchestrator.reject(sessionId, commandId)),
+  )
+  ipcMain.handle('ai:kill', (_, { sessionId }) =>
+    withRuntime(({ aiOrchestrator }) => aiOrchestrator.kill(sessionId)),
   )
   ipcMain.handle('ai:providers', () =>
     withRuntime(async ({ settings }) => {
@@ -108,8 +111,8 @@ export function registerIPCHandlers(): void {
   ipcMain.handle('sessions:get', (_, sessionId) =>
     withRuntime(({ sessions }) => sessions.get(sessionId)),
   )
-  ipcMain.handle('sessions:create', (_, { serverId, config }) =>
-    withRuntime(({ sessions }) => sessions.create(serverId, config)),
+  ipcMain.handle('sessions:create', (_, { serverIds, config }) =>
+    withRuntime(({ sessions }) => sessions.create(serverIds, config)),
   )
   ipcMain.handle('sessions:update', (_, { sessionId, config }) =>
     withRuntime(({ sessions }) => sessions.update(sessionId, config)),
@@ -125,10 +128,18 @@ export function registerIPCHandlers(): void {
   )
 
   // Settings
-  ipcMain.handle('settings:get', () => withRuntime(({ settings }) => settings.get()))
-  ipcMain.handle('settings:update', (_, partial) =>
-    withRuntime(({ settings }) => settings.update(partial)),
-  )
+  ipcMain.handle('settings:get', async () => {
+    const s = await withRuntime(({ settings }) => settings.get())
+    nativeTheme.themeSource = s.theme
+    return s
+  })
+  ipcMain.handle('settings:update', async (_, partial) => {
+    const updated = await withRuntime(({ settings }) => settings.update(partial))
+    if (partial.theme) {
+      nativeTheme.themeSource = partial.theme
+    }
+    return updated
+  })
   ipcMain.handle('settings:test-provider', async (_, provider) => {
     await ensureDesktopShellEnv()
     return testAIProvider(provider)

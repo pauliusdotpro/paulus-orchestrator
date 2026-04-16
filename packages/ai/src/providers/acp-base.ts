@@ -23,6 +23,7 @@ import {
 interface PendingToolCall {
   commandId: string
   command: string
+  serverName: string
   startedAt: string
   resolve: (result: { stdout: string; stderr: string; exitCode: number }) => void
   reject: (err: Error) => void
@@ -107,16 +108,20 @@ export abstract class AcpBaseProvider implements AIProvider {
     let eventResolve: (() => void) | null = null
     let finished = false
     const paulusMcpServer = new PaulusMcpServer({
-      server: context.server,
+      servers: context.servers,
       onToolCall: context.onPaulusToolCall,
-      executeCommand: async (command) => {
+      executeCommand: async (serverName, command) => {
         return new Promise((resolve, reject) => {
           const cmdId = randomUUID()
           const startedAt = new Date().toISOString()
+          const matchedServer = context.servers.find(
+            (s) => s.name.toLowerCase() === serverName.toLowerCase(),
+          )
 
           pendingToolCalls.set(cmdId, {
             commandId: cmdId,
             command,
+            serverName,
             startedAt,
             resolve,
             reject,
@@ -129,8 +134,11 @@ export abstract class AcpBaseProvider implements AIProvider {
                 command,
                 status: 'pending',
                 startedAt,
-                explanation:
-                  'AI wants Paulus to run a command on the selected server via paulus_exec_server_command',
+                explanation: `AI wants Paulus to run a command on "${serverName}" via paulus_exec_server_command`,
+                metadata: {
+                  serverId: matchedServer?.id,
+                  serverName,
+                },
               }),
             ),
           )
@@ -273,10 +281,12 @@ export abstract class AcpBaseProvider implements AIProvider {
             const command = this.extractCommand(params)
             const cmdId = randomUUID()
             const startedAt = new Date().toISOString()
+            const defaultServerName = context.servers[0]?.name ?? ''
 
             pendingToolCalls.set(cmdId, {
               commandId: cmdId,
               command,
+              serverName: defaultServerName,
               startedAt,
               resolve: (result) => {
                 resolve({
@@ -344,12 +354,50 @@ export abstract class AcpBaseProvider implements AIProvider {
     client.onRequest('session/request_permission', (params) => {
       const permission = params?.permission || params || {}
       const toolName = this.getToolName('session/request_permission', permission)
-      const allowOption = this.findPermissionOption(permission, 'allow')
-      const rejectOption = this.findPermissionOption(permission, 'reject')
+
+      // Options may live at params.options or permission.options depending on agent
+      const allowOption =
+        this.findPermissionOption(permission, 'allow') ?? this.findPermissionOption(params, 'allow')
+      const rejectOption =
+        this.findPermissionOption(permission, 'reject') ??
+        this.findPermissionOption(params, 'reject')
+
+      console.log(
+        `[${this.name}] request_permission: tool=${toolName} allow=${allowOption?.optionId ?? 'null'} reject=${rejectOption?.optionId ?? 'null'}`,
+      )
 
       // Default to remote-only unless the user explicitly requested local execution.
+      // The Codex agent sends a generic "Approve MCP tool call" title for MCP tools
+      // instead of the specific tool name. Since we only configure our own Paulus MCP
+      // server, approve any MCP-related permission request — the actual tool execution
+      // still goes through the command approval flow.
       const isPaulusTool = isPaulusToolName(toolName)
-      if (isPaulusTool && allowOption) {
+      const isMcpToolPermission = toolName.toLowerCase().includes('mcp')
+      if (isPaulusTool || isMcpToolPermission) {
+        // For Paulus tools, always grant permission. Try the matched allow option
+        // first, then fall back to any available option (agents use varying names).
+        const option =
+          allowOption ??
+          this.findFirstPermissionOption(permission) ??
+          this.findFirstPermissionOption(params)
+        if (option) {
+          return Promise.resolve({
+            outcome: {
+              outcome: 'selected',
+              optionId: option.optionId,
+            },
+          })
+        }
+        console.warn(
+          `[${this.name}] Paulus tool "${toolName}" permission request had no selectable options — cancelling`,
+        )
+      }
+
+      // Allow shell tools through permission so they reach the execution handler.
+      // In remote scope the execution handler returns a helpful error redirecting
+      // the agent to use paulus_exec_server_command via MCP instead of silently
+      // cancelling the request here with no guidance.
+      if (isLocalShellToolName(toolName) && allowOption) {
         return Promise.resolve({
           outcome: {
             outcome: 'selected',
@@ -358,16 +406,7 @@ export abstract class AcpBaseProvider implements AIProvider {
         })
       }
 
-      if (executionScope === 'local' && isLocalShellToolName(toolName) && allowOption) {
-        return Promise.resolve({
-          outcome: {
-            outcome: 'selected',
-            optionId: allowOption.optionId,
-          },
-        })
-      }
-
-      // Reject everything else (built-in Bash, terminal, file tools, etc.)
+      // Reject everything else (file system tools, etc.)
       if (rejectOption) {
         return Promise.resolve({
           outcome: {
@@ -818,11 +857,21 @@ export abstract class AcpBaseProvider implements AIProvider {
     const options: Array<{ optionId?: string; kind?: string }> = Array.isArray(permission?.options)
       ? permission.options
       : []
+
+    // Agents use varying option names: allow/approve/always_allow, reject/deny/block etc.
+    const allowSynonyms = ['allow', 'approve', 'accept', 'grant', 'yes']
+    const rejectSynonyms = ['reject', 'deny', 'decline', 'block', 'refuse', 'no']
+    const synonyms = kind === 'allow' ? allowSynonyms : rejectSynonyms
+
     const matchingOption =
-      options.find((option) => typeof option?.kind === 'string' && option.kind.startsWith(kind)) ??
-      options.find(
-        (option) => typeof option?.optionId === 'string' && option.optionId.includes(kind),
-      )
+      options.find((option) => {
+        const k = typeof option?.kind === 'string' ? option.kind.toLowerCase() : ''
+        return synonyms.some((syn) => k.startsWith(syn) || k.includes(syn))
+      }) ??
+      options.find((option) => {
+        const id = typeof option?.optionId === 'string' ? option.optionId.toLowerCase() : ''
+        return synonyms.some((syn) => id.includes(syn))
+      })
 
     if (!matchingOption || typeof matchingOption.optionId !== 'string') {
       return null
@@ -832,6 +881,15 @@ export abstract class AcpBaseProvider implements AIProvider {
       optionId: matchingOption.optionId,
       kind: matchingOption.kind,
     }
+  }
+
+  private findFirstPermissionOption(permission: any): { optionId: string; kind?: string } | null {
+    const options: Array<{ optionId?: string; kind?: string }> = Array.isArray(permission?.options)
+      ? permission.options
+      : []
+    const first = options.find((option) => typeof option?.optionId === 'string')
+    if (!first || typeof first.optionId !== 'string') return null
+    return { optionId: first.optionId, kind: first.kind }
   }
 
   private pickString(...values: unknown[]): string | null {

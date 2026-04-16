@@ -58,7 +58,7 @@ export function MainPanel() {
   // Settings view — full panel takeover
   if (activeView === 'global') {
     return (
-      <div className="flex-1 flex flex-col bg-zinc-950 min-w-0">
+      <div className="flex-1 flex flex-col bg-surface min-w-0">
         <SettingsView onClose={closeSettingsView} />
       </div>
     )
@@ -70,17 +70,17 @@ export function MainPanel() {
       : null
     if (!editingServer) {
       return (
-        <div className="flex-1 flex flex-col bg-zinc-950 min-w-0">
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-zinc-100">Server Settings</h2>
+        <div className="flex-1 flex flex-col bg-surface min-w-0">
+          <div className="px-6 py-4 border-b border-edge-subtle flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-fg">Server Settings</h2>
             <button
               onClick={closeSettingsView}
-              className="text-zinc-400 hover:text-zinc-100 text-sm px-3 py-1.5 rounded-md hover:bg-zinc-800 transition-colors"
+              className="text-fg-muted hover:text-fg text-sm px-3 py-1.5 rounded-md hover:bg-surface-raised transition-colors"
             >
               Close
             </button>
           </div>
-          <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
+          <div className="flex-1 flex items-center justify-center text-sm text-fg-faint">
             Server not found.
           </div>
         </div>
@@ -88,7 +88,7 @@ export function MainPanel() {
     }
 
     return (
-      <div className="flex-1 flex flex-col bg-zinc-950 min-w-0">
+      <div className="flex-1 flex flex-col bg-surface min-w-0">
         <ServerSettingsView server={editingServer} />
       </div>
     )
@@ -96,8 +96,8 @@ export function MainPanel() {
 
   if (!activeServerId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-zinc-950">
-        <div className="text-center text-zinc-500">
+      <div className="flex-1 flex items-center justify-center bg-surface">
+        <div className="text-center text-fg-faint">
           <p className="text-lg mb-1">No server selected</p>
           <p className="text-sm">Select or add a server to get started</p>
         </div>
@@ -112,15 +112,15 @@ export function MainPanel() {
   if (!server) return null
 
   return (
-    <div className="flex-1 flex flex-col bg-zinc-950 min-w-0">
+    <div className="flex-1 flex flex-col bg-surface min-w-0">
       {/* Server header */}
-      <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-3">
+      <div className="px-4 py-3 border-b border-edge-subtle flex items-center gap-3">
         {/* Sidebar toggle */}
         {sidebarCollapsed && (
           <button
             onClick={toggleSidebar}
             title="Show sidebar"
-            className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-md p-1 transition-colors"
+            className="text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised rounded-md p-1 transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -146,12 +146,12 @@ export function MainPanel() {
                 ? 'bg-yellow-400'
                 : connection?.status === 'error'
                   ? 'bg-red-400'
-                  : 'bg-zinc-600'
+                  : 'bg-surface-strong'
           }`}
         />
         <div>
-          <span className="text-sm font-medium text-zinc-100">{server.name}</span>
-          <span className="text-xs text-zinc-500 ml-2">
+          <span className="text-sm font-medium text-fg">{server.name}</span>
+          <span className="text-xs text-fg-faint ml-2">
             {anonymousMode ? maskUsername(server.username) : server.username}@
             {anonymousMode ? maskHost(server.host) : server.host}:
             {anonymousMode ? maskPort(server.port) : server.port}
@@ -246,7 +246,7 @@ export function MainPanel() {
         {panelLayout === 'split' && (
           <div
             onMouseDown={handleMouseDown}
-            className="w-1 flex-shrink-0 bg-zinc-800 hover:bg-zinc-600 cursor-col-resize transition-colors relative group"
+            className="w-1 flex-shrink-0 bg-surface-raised hover:bg-surface-strong cursor-col-resize transition-colors relative group"
           >
             <div className="absolute inset-y-0 -left-1 -right-1" />
           </div>
@@ -282,7 +282,9 @@ function PanelToggleButton({
       onClick={onClick}
       title={title}
       className={`p-1.5 rounded transition-colors ${
-        active ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+        active
+          ? 'bg-surface-active text-fg-secondary'
+          : 'text-fg-faint hover:text-fg-tertiary hover:bg-surface-raised'
       }`}
     >
       {children}

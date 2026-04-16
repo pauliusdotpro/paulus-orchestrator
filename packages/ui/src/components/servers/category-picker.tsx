@@ -67,11 +67,11 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:border-zinc-600 focus:border-zinc-500 focus:outline-none"
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-fg hover:border-edge-strong focus:border-edge-strong focus:outline-none"
       >
         <span className="truncate">{selected}</span>
         <svg
-          className={`h-4 w-4 flex-shrink-0 text-zinc-500 transition-transform ${
+          className={`h-4 w-4 flex-shrink-0 text-fg-faint transition-transform ${
             open ? 'rotate-180' : ''
           }`}
           viewBox="0 0 20 20"
@@ -86,7 +86,7 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 shadow-2xl">
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-edge bg-surface-alt shadow-2xl">
           <ul className="max-h-56 overflow-y-auto py-1">
             {allCategories.map((category) => {
               const isSelected = category === selected
@@ -100,14 +100,14 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
                     }}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm ${
                       isSelected
-                        ? 'bg-zinc-800 text-zinc-100'
-                        : 'text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'
+                        ? 'bg-surface-raised text-fg'
+                        : 'text-fg-tertiary hover:bg-surface-raised hover:text-fg'
                     }`}
                   >
                     <span className="truncate">{category}</span>
                     {isSelected && (
                       <svg
-                        className="h-4 w-4 text-zinc-400"
+                        className="h-4 w-4 text-fg-muted"
                         viewBox="0 0 20 20"
                         fill="currentColor"
                       >
@@ -124,7 +124,7 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
             })}
           </ul>
 
-          <div className="border-t border-zinc-800 bg-zinc-950/40 p-1.5">
+          <div className="border-t border-edge-subtle bg-surface/40 p-1.5">
             {creating ? (
               <div className="flex items-center gap-1.5">
                 <input
@@ -138,12 +138,12 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
                     }
                   }}
                   placeholder="New category name"
-                  className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
+                  className="flex-1 rounded border border-edge bg-surface-alt px-2 py-1 text-sm text-fg focus:border-edge-strong focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={commitDraft}
-                  className="rounded bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-zinc-200"
+                  className="rounded bg-surface-invert px-2 py-1 text-xs font-medium text-fg-invert hover:bg-surface-invert-hover"
                 >
                   Add
                 </button>
@@ -152,7 +152,7 @@ export function CategoryPicker({ value, categories, onChange }: CategoryPickerPr
               <button
                 type="button"
                 onClick={() => setCreating(true)}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-fg-tertiary hover:bg-surface-raised hover:text-fg"
               >
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10 4a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 10 4Z" />

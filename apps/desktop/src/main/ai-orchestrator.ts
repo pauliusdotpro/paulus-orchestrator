@@ -17,6 +17,7 @@ interface PendingCommand {
   id: string
   command: string
   serverId: string
+  serverName: string
   sessionId: string
   startedAt: string
 }
@@ -52,11 +53,27 @@ export class AIOrchestrator {
     return provider.listModels()
   }
 
-  async send(serverId: string, sessionId: string, message: string): Promise<void> {
+  async send(serverIds: string[], sessionId: string, message: string): Promise<void> {
     const session = await this.sessionManager.get(sessionId)
-    const serverConfig = this.serverManager.getConfig(serverId)
-    if (!serverConfig) throw new Error(`Server not found: ${serverId}`)
     const yoloMode = session.yoloMode === true
+
+    // Build server contexts for all servers in this session
+    const serverContexts = serverIds.map((sid) => {
+      const config = this.serverManager.getConfig(sid)
+      if (!config) throw new Error(`Server not found: ${sid}`)
+      return {
+        id: sid,
+        name: config.name,
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        authMethod: config.authMethod as 'password' | 'key',
+        hasStoredPassword: Boolean(config.hasPassword),
+        privateKeyPath: config.privateKeyPath,
+        tags: config.tags ?? [],
+        connected: this.serverManager.pool.isConnected(sid),
+      }
+    })
 
     // Save user message
     const userMessage: AIMessage = {
@@ -75,22 +92,13 @@ export class AIOrchestrator {
     history.push({ role: 'user', content: message })
 
     // Spawn AI process
-    console.log(`[AI] Spawning ${session.provider} for server ${serverConfig.name}`)
+    const serverNamesList = serverContexts.map((s) => s.name).join(', ')
+    console.log(`[AI] Spawning ${session.provider} for servers: ${serverNamesList}`)
     const provider = createProvider(session.provider)
     const process = provider.spawn(
       message,
       {
-        server: {
-          name: serverConfig.name,
-          host: serverConfig.host,
-          port: serverConfig.port,
-          username: serverConfig.username,
-          authMethod: serverConfig.authMethod,
-          hasStoredPassword: Boolean(serverConfig.hasPassword),
-          privateKeyPath: serverConfig.privateKeyPath,
-          tags: serverConfig.tags ?? [],
-          connected: this.serverManager.pool.isConnected(serverId),
-        },
+        servers: serverContexts,
         conversationHistory: history,
       },
       { model: session.model },
@@ -125,10 +133,19 @@ export class AIOrchestrator {
             event.tool.status === 'pending' &&
             event.tool.command
           ) {
+            // Resolve server name from tool metadata to serverId
+            const targetServerName =
+              (event.tool.metadata?.serverName as string) ?? serverContexts[0]?.name
+            const targetServer = serverContexts.find(
+              (s) => s.name.toLowerCase() === targetServerName?.toLowerCase(),
+            )
+            const targetServerId = targetServer?.id ?? serverIds[0]
+
             this.pendingCommands.set(event.tool.id, {
               id: event.tool.id,
               command: event.tool.command,
-              serverId,
+              serverId: targetServerId,
+              serverName: targetServerName ?? '',
               sessionId,
               startedAt: event.tool.startedAt ?? new Date().toISOString(),
             })
@@ -182,6 +199,8 @@ export class AIOrchestrator {
           command: pending.command,
           status: 'running',
           startedAt: pending.startedAt,
+          serverId: pending.serverId,
+          serverName: pending.serverName,
         }),
       ),
     )
@@ -199,6 +218,8 @@ export class AIOrchestrator {
             startedAt: pending.startedAt,
             endedAt: new Date().toISOString(),
             output: createCommandToolOutput(result),
+            serverId: pending.serverId,
+            serverName: pending.serverName,
           }),
         ),
       )
@@ -219,6 +240,8 @@ export class AIOrchestrator {
             startedAt: pending.startedAt,
             endedAt: new Date().toISOString(),
             error: `Command failed: ${err.message}`,
+            serverId: pending.serverId,
+            serverName: pending.serverName,
           }),
         ),
       )
@@ -229,7 +252,7 @@ export class AIOrchestrator {
           formatCommandResultForModel({
             exitCode: 1,
             stdout: '',
-            stderr: `Command failed: ${err.message}`,
+            stderr: `Command failed on ${pending.serverName}: ${err.message}`,
           }),
         )
       }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react'
 import type { AIMessage } from '@paulus/shared'
 import { useChatStore } from '../stores'
@@ -6,6 +6,13 @@ import { useBridge } from './use-bridge'
 import { buildMessageContent } from '../components/chat/message-content'
 
 export const STREAMING_MESSAGE_ID = '__streaming__'
+
+// Module-level flag read by onNew to decide queue vs interrupt behaviour.
+// Set synchronously before ComposerPrimitive.Send triggers the submit.
+let _nextSendMode: 'send' | 'queue' = 'send'
+export function setNextSendMode(mode: 'send' | 'queue') {
+  _nextSendMode = mode
+}
 
 const EMPTY_MESSAGES: AIMessage[] = []
 
@@ -21,7 +28,7 @@ function convertMessage(msg: AIMessage): ThreadMessageLike {
   }
 }
 
-export function useAssistantRuntime(serverId: string) {
+export function useAssistantRuntime(serverIds: string[]) {
   const bridge = useBridge()
   const {
     activeSessionId,
@@ -29,8 +36,12 @@ export function useAssistantRuntime(serverId: string) {
     streamingText,
     streamingEvents,
     isStreaming,
+    messageQueue,
     createSession,
     sendMessage,
+    interruptWithMessage,
+    queueMessage,
+    dequeueMessage,
   } = useChatStore()
 
   const session = activeSessionId ? sessions[activeSessionId] : null
@@ -68,6 +79,15 @@ export function useAssistantRuntime(serverId: string) {
     [messages, streamingMessage],
   )
 
+  // Process queued messages when streaming ends
+  useEffect(() => {
+    if (!isStreaming && messageQueue.length > 0) {
+      const next = messageQueue[0]
+      dequeueMessage()
+      sendMessage(bridge, serverIds, next)
+    }
+  }, [isStreaming, messageQueue, bridge, serverIds, sendMessage, dequeueMessage])
+
   const onNew = useCallback(
     async (message: { content: readonly { type: string; text?: string }[] }) => {
       const text = message.content
@@ -75,12 +95,32 @@ export function useAssistantRuntime(serverId: string) {
         .map((part) => part.text)
         .join('\n')
 
-      if (!activeSessionId) {
-        await createSession(bridge, serverId)
+      if (isStreaming) {
+        const mode = _nextSendMode
+        _nextSendMode = 'send' // reset
+        if (mode === 'queue') {
+          queueMessage(text)
+        } else {
+          await interruptWithMessage(bridge, serverIds, text)
+        }
+        return
       }
-      await sendMessage(bridge, serverId, text)
+
+      if (!activeSessionId) {
+        await createSession(bridge, serverIds)
+      }
+      await sendMessage(bridge, serverIds, text)
     },
-    [activeSessionId, bridge, createSession, sendMessage, serverId],
+    [
+      activeSessionId,
+      bridge,
+      createSession,
+      sendMessage,
+      interruptWithMessage,
+      isStreaming,
+      queueMessage,
+      serverIds,
+    ],
   )
 
   return useExternalStoreRuntime({

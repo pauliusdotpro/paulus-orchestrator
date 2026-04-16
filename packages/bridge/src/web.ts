@@ -27,6 +27,7 @@ export function createWebBridge(): Bridge {
       send: notImplemented,
       approve: notImplemented,
       reject: notImplemented,
+      kill: notImplemented,
       getProviders: notImplemented,
       getModels: notImplemented,
       onEvent: notImplemented,

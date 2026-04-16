@@ -17,7 +17,7 @@ export function MessageList({ messages, streamingText, isStreaming }: MessageLis
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
       {messages.length === 0 && !isStreaming && (
-        <div className="text-center text-zinc-600 py-12">
+        <div className="text-center text-fg-dim py-12">
           <p className="text-sm">Ask the AI to inspect, debug, or manage this server.</p>
         </div>
       )}
@@ -30,8 +30,8 @@ export function MessageList({ messages, streamingText, isStreaming }: MessageLis
           <div
             className={`max-w-[80%] min-w-0 px-4 py-2.5 rounded-lg text-sm whitespace-pre-wrap ${
               msg.role === 'user'
-                ? 'bg-zinc-800 text-zinc-100'
-                : 'bg-zinc-900 border border-zinc-800 text-zinc-300'
+                ? 'bg-surface-raised text-fg'
+                : 'bg-surface-alt border border-edge-subtle text-fg-tertiary'
             }`}
           >
             {msg.content}
@@ -41,7 +41,7 @@ export function MessageList({ messages, streamingText, isStreaming }: MessageLis
 
       {isStreaming && streamingText && (
         <div className="flex justify-start">
-          <div className="max-w-[80%] px-4 py-2.5 rounded-lg text-sm bg-zinc-900 border border-zinc-800 text-zinc-300 whitespace-pre-wrap">
+          <div className="max-w-[80%] px-4 py-2.5 rounded-lg text-sm bg-surface-alt border border-edge-subtle text-fg-tertiary whitespace-pre-wrap">
             {streamingText}
             <span className="inline-block w-1.5 h-4 bg-zinc-400 ml-0.5 animate-pulse" />
           </div>

@@ -246,21 +246,21 @@ export function SettingsView({ onClose }: SettingsViewProps) {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-zinc-950">
-      <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+    <div className="flex-1 flex flex-col min-h-0 bg-surface">
+      <div className="px-6 py-4 border-b border-edge-subtle flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-zinc-100">Settings</h2>
-          <p className="text-xs text-zinc-500 mt-1">Global behavior, appearance, and storage.</p>
+          <h2 className="text-lg font-semibold text-fg">Settings</h2>
+          <p className="text-xs text-fg-faint mt-1">Global behavior, appearance, and storage.</p>
         </div>
         <button
           onClick={onClose}
-          className="text-zinc-400 hover:text-zinc-100 text-sm px-3 py-1.5 rounded-md hover:bg-zinc-800 transition-colors"
+          className="text-fg-muted hover:text-fg text-sm px-3 py-1.5 rounded-md hover:bg-surface-raised transition-colors"
         >
           Close
         </button>
       </div>
 
-      <div className="border-b border-zinc-800 px-6">
+      <div className="border-b border-edge-subtle px-6">
         <div className="flex gap-2 overflow-x-auto py-3">
           {TABS.map((tab) => (
             <button
@@ -268,8 +268,8 @@ export function SettingsView({ onClose }: SettingsViewProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-zinc-100 text-zinc-900'
-                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800'
+                  ? 'bg-surface-invert text-fg-invert'
+                  : 'text-fg-muted hover:text-fg hover:bg-surface-raised'
               }`}
             >
               {tab.label}
@@ -327,12 +327,12 @@ export function SettingsView({ onClose }: SettingsViewProps) {
         {activeTab === 'updates' && <UpdatesTab />}
       </div>
 
-      <div className="border-t border-zinc-800 px-6 py-4 bg-zinc-950 flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-500">Changes save immediately.</p>
+      <div className="border-t border-edge-subtle px-6 py-4 bg-surface flex items-center justify-between gap-3">
+        <p className="text-xs text-fg-faint">Changes save immediately.</p>
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200"
+          className="px-4 py-2 text-sm text-fg-muted hover:text-fg-secondary"
         >
           Close
         </button>
@@ -369,8 +369,10 @@ function AIProviderTab({
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">AI Provider</h3>
-        <p className="text-sm text-zinc-500 mt-1">
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">
+          AI Provider
+        </h3>
+        <p className="text-sm text-fg-faint mt-1">
           Choose the default backend for new chat sessions. Active chats can override provider and
           model directly in the composer.
         </p>
@@ -390,7 +392,7 @@ function AIProviderTab({
               className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
                 isActive
                   ? 'border-blue-500/50 bg-blue-500/10'
-                  : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800/50'
+                  : 'border-edge-subtle bg-surface-alt hover:border-edge hover:bg-surface-raised/50'
               }`}
             >
               <div className="flex items-start gap-3">
@@ -401,12 +403,12 @@ function AIProviderTab({
                 >
                   <div
                     className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
-                      isActive ? 'border-blue-400 bg-blue-400' : 'border-zinc-600'
+                      isActive ? 'border-blue-400 bg-blue-400' : 'border-edge-strong'
                     }`}
                   />
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-zinc-100">{info.label}</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">{info.description}</div>
+                    <div className="text-sm font-medium text-fg">{info.label}</div>
+                    <div className="text-xs text-fg-faint mt-0.5">{info.description}</div>
                   </div>
                 </button>
 
@@ -420,7 +422,7 @@ function AIProviderTab({
                       onTest(type).catch(() => {})
                     }}
                     disabled={busyAction !== null}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-md border border-edge px-3 py-1.5 text-xs text-fg-secondary hover:border-edge-strong disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isTesting ? 'Testing...' : 'Test'}
                   </button>
@@ -436,11 +438,11 @@ function AIProviderTab({
                   }`}
                 >
                   <div className="font-medium">{testResult.detail}</div>
-                  <div className="mt-1 text-zinc-300">
+                  <div className="mt-1 text-fg-tertiary">
                     Tool: {testResult.toolName} · called: {testResult.toolCalled ? 'yes' : 'no'}
                   </div>
                   {testResult.responseText && (
-                    <div className="mt-2 rounded-md border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-zinc-300 whitespace-pre-wrap break-words">
+                    <div className="mt-2 rounded-md border border-edge-subtle bg-surface/80 px-3 py-2 text-fg-tertiary whitespace-pre-wrap break-words">
                       {testResult.responseText}
                     </div>
                   )}
@@ -448,7 +450,7 @@ function AIProviderTab({
               )}
 
               {!testResult && isTesting && (
-                <div className="mt-3 text-xs text-zinc-500">
+                <div className="mt-3 text-xs text-fg-faint">
                   Waiting for the provider to call the Paulus self-test tool and return a short
                   response.
                 </div>
@@ -475,8 +477,8 @@ function AppearanceTab({
   return (
     <section className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Appearance</h3>
-        <p className="text-sm text-zinc-500 mt-1">Control the app theme.</p>
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Appearance</h3>
+        <p className="text-sm text-fg-faint mt-1">Control the app theme.</p>
       </div>
 
       <div className="flex gap-2">
@@ -487,7 +489,7 @@ function AppearanceTab({
             className={`px-4 py-2 rounded-lg text-sm capitalize transition-colors ${
               theme === option
                 ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-700'
+                : 'bg-surface-alt text-fg-muted border border-edge-subtle hover:border-edge'
             }`}
           >
             {option}
@@ -495,9 +497,9 @@ function AppearanceTab({
         ))}
       </div>
 
-      <div className="pt-2 border-t border-zinc-800">
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Privacy</h3>
-        <p className="text-sm text-zinc-500 mt-1">
+      <div className="pt-2 border-t border-edge-subtle">
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Privacy</h3>
+        <p className="text-sm text-fg-faint mt-1">
           Useful for screen sharing, demos, or recordings.
         </p>
 
@@ -506,11 +508,11 @@ function AppearanceTab({
             type="checkbox"
             checked={anonymousMode}
             onChange={(e) => onAnonymousModeChange(e.target.checked)}
-            className="mt-0.5 rounded border-zinc-600 bg-zinc-800"
+            className="mt-0.5 rounded border-edge-strong bg-surface-raised"
           />
           <div>
-            <div className="text-sm text-zinc-200">Anonymous mode</div>
-            <div className="text-xs text-zinc-500 mt-0.5">
+            <div className="text-sm text-fg-secondary">Anonymous mode</div>
+            <div className="text-xs text-fg-faint mt-0.5">
               Hide sensitive connection details — host, IP, username, and port — by masking them
               with asterisks (e.g. <span className="font-mono">***.***.***.***</span>). Your server
               configuration is unchanged; only the display is masked.
@@ -536,29 +538,29 @@ function TerminalTab({
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Terminal</h3>
-        <p className="text-sm text-zinc-500 mt-1">Tune the embedded terminal rendering.</p>
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Terminal</h3>
+        <p className="text-sm text-fg-faint mt-1">Tune the embedded terminal rendering.</p>
       </div>
 
       <div>
-        <label className="block text-xs text-zinc-500 mb-1.5">Font Size</label>
+        <label className="block text-xs text-fg-faint mb-1.5">Font Size</label>
         <input
           type="number"
           min={10}
           max={24}
           value={fontSize}
           onChange={(e) => onFontSizeChange(parseInt(e.target.value) || 14)}
-          className="w-24 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
+          className="w-24 px-3 py-2 bg-surface-alt border border-edge rounded-md text-sm text-fg focus:outline-none focus:border-blue-500"
         />
       </div>
 
       <div>
-        <label className="block text-xs text-zinc-500 mb-1.5">Font Family</label>
+        <label className="block text-xs text-fg-faint mb-1.5">Font Family</label>
         <input
           type="text"
           value={fontFamily}
           onChange={(e) => onFontFamilyChange(e.target.value)}
-          className="w-full max-w-md px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-md text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
+          className="w-full max-w-md px-3 py-2 bg-surface-alt border border-edge rounded-md text-sm text-fg focus:outline-none focus:border-blue-500"
         />
       </div>
     </section>
@@ -621,21 +623,23 @@ function DataStorageTab({
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Data Storage</h3>
-        <p className="text-sm text-zinc-500 mt-1">
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">
+          Data Storage
+        </h3>
+        <p className="text-sm text-fg-faint mt-1">
           Make storage behavior explicit and export everything when needed.
         </p>
       </div>
 
-      {!overview && !error && <div className="text-sm text-zinc-500">Loading storage details…</div>}
+      {!overview && !error && <div className="text-sm text-fg-faint">Loading storage details…</div>}
 
       {overview && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-2">
-            <div className="text-sm text-zinc-100">
+          <div className="rounded-xl border border-edge-subtle bg-surface-alt/60 p-4 space-y-2">
+            <div className="text-sm text-fg">
               Paulus data directory: <span className="font-medium">{overview.dataDirectory}</span>
             </div>
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-fg-faint">
               {overview.serverCount} servers, {overview.savedPasswordCount} saved passwords,{' '}
               {overview.sessionCount} stored sessions.
             </div>
@@ -645,11 +649,11 @@ function DataStorageTab({
             {storageLocations.map((location) => (
               <div
                 key={location.label}
-                className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
+                className="rounded-xl border border-edge-subtle bg-surface-alt/60 p-4"
               >
-                <div className="text-sm font-medium text-zinc-100">{location.label}</div>
-                <div className="mt-1 text-xs text-zinc-500">{location.description}</div>
-                <div className="mt-3 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 break-all">
+                <div className="text-sm font-medium text-fg">{location.label}</div>
+                <div className="mt-1 text-xs text-fg-faint">{location.description}</div>
+                <div className="mt-3 rounded-md border border-edge-subtle bg-surface px-3 py-2 text-xs text-fg-tertiary break-all">
                   {location.path}
                 </div>
               </div>
@@ -662,7 +666,7 @@ function DataStorageTab({
                 onOpenDirectory().catch(() => {})
               }}
               disabled={busyAction !== null}
-              className="px-4 py-2 rounded-lg text-sm bg-zinc-900 text-zinc-200 border border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-lg text-sm bg-surface-alt text-fg-secondary border border-edge-subtle hover:border-edge disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {busyAction === 'open-directory' ? 'Opening...' : 'Open data directory'}
             </button>
@@ -671,7 +675,7 @@ function DataStorageTab({
                 onExportServers().catch(() => {})
               }}
               disabled={busyAction !== null}
-              className="px-4 py-2 rounded-lg text-sm bg-zinc-900 text-zinc-200 border border-zinc-800 hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-lg text-sm bg-surface-alt text-fg-secondary border border-edge-subtle hover:border-edge disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {busyAction === 'export-servers' ? 'Exporting...' : 'Export servers and passwords'}
             </button>
@@ -687,12 +691,12 @@ function DataStorageTab({
           </div>
 
           {importResult && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+            <div className="rounded-xl border border-edge-subtle bg-surface-alt/60 p-4 space-y-3">
               <div>
-                <div className="text-sm font-medium text-zinc-100">Last Royal TSX import</div>
-                <div className="mt-1 text-xs text-zinc-500 break-all">{importResult.filePath}</div>
+                <div className="text-sm font-medium text-fg">Last Royal TSX import</div>
+                <div className="mt-1 text-xs text-fg-faint break-all">{importResult.filePath}</div>
               </div>
-              <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+              <div className="grid gap-2 text-xs text-fg-tertiary sm:grid-cols-2">
                 <div>Imported servers: {importResult.importedServerCount}</div>
                 <div>Saved passwords: {importResult.savedPasswordCount}</div>
                 <div>Encrypted secrets read: {importResult.encryptedSecretCount}</div>
@@ -700,16 +704,16 @@ function DataStorageTab({
               </div>
               {importResult.skippedServers.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
+                  <div className="text-xs font-medium text-fg-muted uppercase tracking-wide">
                     Skipped entries
                   </div>
                   {importResult.skippedServers.map((entry) => (
                     <div
                       key={`${entry.name}:${entry.reason}`}
-                      className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2"
+                      className="rounded-md border border-edge-subtle bg-surface px-3 py-2"
                     >
-                      <div className="text-sm text-zinc-100">{entry.name}</div>
-                      <div className="mt-1 text-xs text-zinc-500">{entry.reason}</div>
+                      <div className="text-sm text-fg">{entry.name}</div>
+                      <div className="mt-1 text-xs text-fg-faint">{entry.reason}</div>
                     </div>
                   ))}
                 </div>
@@ -718,7 +722,7 @@ function DataStorageTab({
           )}
 
           <div className="space-y-2">
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-fg-faint">
               Password storage is explicit. Switching modes rewrites `credentials.json`, and
               OS-backed encryption is not compatible with the CLI saved-password flow.
             </div>
@@ -737,18 +741,18 @@ function DataStorageTab({
                     className={`w-full text-left px-4 py-3 rounded-lg border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                       isActive
                         ? 'border-emerald-500/40 bg-emerald-500/10'
-                        : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700 hover:bg-zinc-800/50'
+                        : 'border-edge-subtle bg-surface-alt hover:border-edge hover:bg-surface-raised/50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-3 h-3 rounded-full border-2 flex-shrink-0 ${
-                          isActive ? 'border-emerald-400 bg-emerald-400' : 'border-zinc-600'
+                          isActive ? 'border-emerald-400 bg-emerald-400' : 'border-edge-strong'
                         }`}
                       />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-zinc-100">{option.label}</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">{option.description}</div>
+                        <div className="text-sm font-medium text-fg">{option.label}</div>
+                        <div className="text-xs text-fg-faint mt-0.5">{option.description}</div>
                         {!option.available && option.unavailableReason && (
                           <div className="text-xs text-amber-400 mt-1">
                             {option.unavailableReason}
@@ -757,7 +761,7 @@ function DataStorageTab({
                       </div>
                       <span
                         className={`ml-auto text-xs font-medium flex-shrink-0 ${
-                          isActive ? 'text-emerald-400' : 'text-zinc-500'
+                          isActive ? 'text-emerald-400' : 'text-fg-faint'
                         }`}
                       >
                         {isBusy ? 'Switching...' : isActive ? 'Current' : 'Use'}
@@ -824,27 +828,27 @@ function UpdatesTab() {
   return (
     <section className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium text-zinc-300 uppercase tracking-wide">Updates</h3>
-        <p className="text-sm text-zinc-500 mt-1">
+        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Updates</h3>
+        <p className="text-sm text-fg-faint mt-1">
           Paulus Orchestrator checks for updates on startup. You can also check manually.
         </p>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+      <div className="rounded-xl border border-edge-subtle bg-surface-alt/60 p-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">Current version</div>
-            <div className="mt-1 text-sm font-medium text-zinc-100">v{currentVersion}</div>
+            <div className="text-xs uppercase tracking-wide text-fg-faint">Current version</div>
+            <div className="mt-1 text-sm font-medium text-fg">v{currentVersion}</div>
           </div>
           <div className="min-w-0 text-right">
-            <div className="text-xs uppercase tracking-wide text-zinc-500">Status</div>
+            <div className="text-xs uppercase tracking-wide text-fg-faint">Status</div>
             <div
               className={`mt-1 text-sm font-medium ${
                 status === 'error'
                   ? 'text-red-400'
                   : status === 'available' || status === 'downloaded'
                     ? 'text-blue-300'
-                    : 'text-zinc-200'
+                    : 'text-fg-secondary'
               }`}
             >
               {formatStatusLabel(status)}
@@ -867,7 +871,7 @@ function UpdatesTab() {
               </div>
             )}
             {info.releaseNotes && (
-              <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-zinc-200">
+              <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words font-sans text-fg-secondary">
                 {info.releaseNotes}
               </pre>
             )}
@@ -876,13 +880,13 @@ function UpdatesTab() {
 
         {status === 'downloading' && progress && (
           <div className="space-y-1">
-            <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+            <div className="h-2 overflow-hidden rounded-full bg-surface-raised">
               <div
                 className="h-full bg-blue-500 transition-[width]"
                 style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-xs text-zinc-500">
+            <div className="flex items-center justify-between text-xs text-fg-faint">
               <span>
                 {formatBytes(progress.transferred)} / {formatBytes(progress.total)}
               </span>
@@ -904,7 +908,7 @@ function UpdatesTab() {
               check().catch(() => {})
             }}
             disabled={!supported || isBusy}
-            className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-edge bg-surface-alt px-3 py-1.5 text-xs text-fg-secondary hover:border-edge-strong disabled:cursor-not-allowed disabled:opacity-50"
           >
             {status === 'checking' ? 'Checking…' : 'Check for updates'}
           </button>
@@ -958,23 +962,23 @@ export function RoyalTsxImportDialog({
         onSubmit={(event) => {
           onSubmit(event).catch(() => {})
         }}
-        className="w-[28rem] space-y-4 rounded-lg border border-zinc-700 bg-zinc-900 p-6"
+        className="w-[28rem] space-y-4 rounded-lg border border-edge bg-surface-alt p-6"
       >
         <div>
-          <h2 className="text-lg font-medium text-zinc-100">Import Royal TSX</h2>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h2 className="text-lg font-medium text-fg">Import Royal TSX</h2>
+          <p className="mt-1 text-sm text-fg-faint">
             Choose your `.rtsz` file next. Enter the document password only if the Royal document is
             password-protected.
           </p>
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs text-zinc-400">Royal TSX Document Password</label>
+          <label className="mb-1.5 block text-xs text-fg-muted">Royal TSX Document Password</label>
           <input
             type="password"
             value={documentPassword}
             onChange={(event) => onPasswordChange(event.target.value)}
-            className="w-full rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+            className="w-full rounded border border-edge bg-surface-raised px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
             placeholder="Leave blank if the document has no password"
             autoFocus
           />
@@ -985,14 +989,14 @@ export function RoyalTsxImportDialog({
             type="button"
             onClick={onCancel}
             disabled={busyAction === 'import-royal-tsx'}
-            className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="px-4 py-2 text-sm text-fg-muted hover:text-fg-secondary disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busyAction === 'import-royal-tsx'}
-            className="rounded bg-zinc-100 px-4 py-2 text-sm text-zinc-900 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded bg-surface-invert px-4 py-2 text-sm text-fg-invert hover:bg-surface-invert-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busyAction === 'import-royal-tsx' ? 'Importing...' : 'Choose File'}
           </button>

@@ -100,26 +100,26 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-[28rem] space-y-4"
+        className="bg-surface-alt border border-edge rounded-lg p-6 w-[28rem] space-y-4"
       >
-        <h2 className="text-lg font-medium text-zinc-100">
+        <h2 className="text-lg font-medium text-fg">
           {isEditing ? 'Server Settings' : 'Add Server'}
         </h2>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">Name</label>
+          <label className="block text-xs text-fg-muted mb-1">Name</label>
           <input
             type="text"
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+            className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
             placeholder="My Server"
           />
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">Category</label>
+          <label className="block text-xs text-fg-muted mb-1">Category</label>
           <CategoryPicker
             value={form.category}
             categories={categories}
@@ -128,48 +128,48 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-2">Color</label>
+          <label className="block text-xs text-fg-muted mb-2">Color</label>
           <ServerColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />
         </div>
 
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-2">
-            <label className="block text-xs text-zinc-400 mb-1">Host</label>
+            <label className="block text-xs text-fg-muted mb-1">Host</label>
             <input
               type="text"
               required
               value={form.host}
               onChange={(e) => setForm({ ...form, host: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
               placeholder="192.168.1.1"
             />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Port</label>
+            <label className="block text-xs text-fg-muted mb-1">Port</label>
             <input
               type="number"
               value={form.port}
               onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) || 22 })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">Username</label>
+          <label className="block text-xs text-fg-muted mb-1">Username</label>
           <input
             type="text"
             required
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+            className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
           />
         </div>
 
         <div>
-          <label className="block text-xs text-zinc-400 mb-1">Auth Method</label>
+          <label className="block text-xs text-fg-muted mb-1">Auth Method</label>
           <div className="flex gap-4">
-            <label className="flex items-center gap-1.5 text-sm text-zinc-300">
+            <label className="flex items-center gap-1.5 text-sm text-fg-tertiary">
               <input
                 type="radio"
                 name="auth"
@@ -178,7 +178,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
               />
               SSH Key
             </label>
-            <label className="flex items-center gap-1.5 text-sm text-zinc-300">
+            <label className="flex items-center gap-1.5 text-sm text-fg-tertiary">
               <input
                 type="radio"
                 name="auth"
@@ -192,12 +192,12 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
 
         {form.authMethod === 'key' && (
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Private Key Path</label>
+            <label className="block text-xs text-fg-muted mb-1">Private Key Path</label>
             <input
               type="text"
               value={form.privateKeyPath}
               onChange={(e) => setForm({ ...form, privateKeyPath: e.target.value })}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
               placeholder="~/.ssh/id_rsa"
             />
           </div>
@@ -205,7 +205,7 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
 
         {form.authMethod === 'password' && (
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">
+            <label className="block text-xs text-fg-muted mb-1">
               {isEditing ? 'New Password' : 'Password'}
             </label>
             <input
@@ -218,10 +218,10 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
                   setClearSavedPassword(false)
                 }
               }}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-fg focus:outline-none focus:border-edge-strong"
               placeholder={isEditing ? 'Leave blank to keep current password' : 'Enter password'}
             />
-            <p className="text-xs text-zinc-600 mt-1">
+            <p className="text-xs text-fg-dim mt-1">
               {isEditing && server?.hasPassword
                 ? 'Leave blank to keep the current saved password.'
                 : 'Encrypted and stored locally via OS keychain. Paulus only reads it when you connect.'}
@@ -232,16 +232,16 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
                   type="checkbox"
                   checked={clearSavedPassword}
                   onChange={(e) => setClearSavedPassword(e.target.checked)}
-                  className="rounded border-zinc-600 bg-zinc-800"
+                  className="rounded border-edge-strong bg-surface-raised"
                 />
-                <span className="text-sm text-zinc-300">Remove saved password</span>
+                <span className="text-sm text-fg-tertiary">Remove saved password</span>
               </label>
             )}
           </div>
         )}
 
         {isEditing && form.authMethod === 'key' && server?.hasPassword && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-fg-faint">
             Switching to SSH key authentication removes the saved password.
           </p>
         )}
@@ -252,22 +252,24 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
             checked={autoConnectAvailable && form.autoConnect}
             onChange={(e) => setForm({ ...form, autoConnect: e.target.checked })}
             disabled={!autoConnectAvailable}
-            className="rounded border-zinc-600 bg-zinc-800"
+            className="rounded border-edge-strong bg-surface-raised"
           />
-          <span className={`text-sm ${autoConnectAvailable ? 'text-zinc-300' : 'text-zinc-500'}`}>
+          <span
+            className={`text-sm ${autoConnectAvailable ? 'text-fg-tertiary' : 'text-fg-faint'}`}
+          >
             Auto-connect on launch
           </span>
         </label>
 
         {!autoConnectAvailable && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-fg-faint">
             Launch auto-connect is only available for SSH key authentication. Password-based servers
             require manual connect so the OS keychain prompt never appears on app open.
           </p>
         )}
 
         {isEditing && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-fg-faint">
             If this server is already connected, reconnect to apply updated connection details.
           </p>
         )}
@@ -288,14 +290,14 @@ export function ServerForm({ server, onClose, onDelete }: ServerFormProps) {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200"
+            className="px-4 py-2 text-sm text-fg-muted hover:text-fg-secondary"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 text-sm bg-zinc-100 text-zinc-900 rounded hover:bg-zinc-200 disabled:opacity-50"
+            className="px-4 py-2 text-sm bg-surface-invert text-fg-invert rounded hover:bg-surface-invert-hover disabled:opacity-50"
           >
             {saving
               ? isEditing

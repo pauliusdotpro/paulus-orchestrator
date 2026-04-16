@@ -7,16 +7,19 @@ const TEST_SERVER_NAME = 'Settings Self-Test'
 
 function createTestContext(): AIContext {
   return {
-    server: {
-      name: TEST_SERVER_NAME,
-      host: '127.0.0.1',
-      port: 22,
-      username: 'paulus',
-      authMethod: 'key',
-      hasStoredPassword: false,
-      tags: ['settings', 'self-test'],
-      connected: false,
-    },
+    servers: [
+      {
+        id: 'self-test',
+        name: TEST_SERVER_NAME,
+        host: '127.0.0.1',
+        port: 22,
+        username: 'paulus',
+        authMethod: 'key',
+        hasStoredPassword: false,
+        tags: ['settings', 'self-test'],
+        connected: false,
+      },
+    ],
     conversationHistory: [],
   }
 }

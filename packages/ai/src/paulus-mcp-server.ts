@@ -13,8 +13,8 @@ export interface CommandExecutionResult {
 }
 
 interface McpToolServerOptions {
-  server: AIServerContext
-  executeCommand(command: string): Promise<CommandExecutionResult>
+  servers: AIServerContext[]
+  executeCommand(serverName: string, command: string): Promise<CommandExecutionResult>
   onToolCall?: (toolName: string, args: Record<string, unknown>) => void
 }
 
@@ -65,57 +65,136 @@ function defineMcpTool<TArgs extends Record<string, unknown>>(
 }
 
 function registerTools(mcpServer: McpServer, options: McpToolServerOptions): void {
-  const commandSchema: z.ZodType<{ command: string }> = z.object({
-    command: z.string().min(1).describe('Shell command to run on the selected remote server'),
+  const serverNames = options.servers.map((s) => s.name)
+  const isSingleServer = options.servers.length === 1
+  const defaultServerName = isSingleServer ? options.servers[0].name : undefined
+
+  const commandSchema = z.object({
+    server: z
+      .string()
+      .describe(
+        isSingleServer
+          ? `Target server name. Available: "${serverNames[0]}"`
+          : `Target server name. Available: ${serverNames.map((n) => `"${n}"`).join(', ')}`,
+      ),
+    command: z.string().min(1).describe('Shell command to run on the target remote server'),
   })
-  const emptySchema: z.ZodType<Record<string, never>> = z.object({})
+
+  const contextSchema = z.object({
+    server: z
+      .string()
+      .optional()
+      .describe(
+        isSingleServer
+          ? `Server name (optional, defaults to "${serverNames[0]}")`
+          : `Server name. If omitted, returns info for all servers. Available: ${serverNames.map((n) => `"${n}"`).join(', ')}`,
+      ),
+  })
 
   mcpServer.registerTool(
     'paulus_exec_server_command',
     {
       description:
-        'Execute a shell command on the selected remote server through Paulus Orchestrator.',
+        options.servers.length === 1
+          ? `Execute a shell command on the remote server "${serverNames[0]}" through Paulus Orchestrator.`
+          : `Execute a shell command on a remote server through Paulus Orchestrator. You MUST specify which server to target. Available servers: ${serverNames.map((n) => `"${n}"`).join(', ')}.`,
       inputSchema: commandSchema,
     },
-    defineMcpTool('paulus_exec_server_command', commandSchema, options, async ({ command }) => {
-      const result = await options.executeCommand(command)
-      return {
-        content: [
-          {
-            type: 'text',
-            text:
-              `Command: ${command}\n` +
-              `Exit code: ${result.exitCode}\n` +
-              `STDOUT:\n${result.stdout || '(empty)'}\n` +
-              `STDERR:\n${result.stderr || '(empty)'}`,
-          },
-        ],
-      }
-    }),
+    defineMcpTool(
+      'paulus_exec_server_command',
+      commandSchema,
+      options,
+      async ({ server, command }) => {
+        const targetName = server || defaultServerName
+        if (!targetName) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `You must specify which server to target. Available servers: ${serverNames.map((n) => `"${n}"`).join(', ')}`,
+              },
+            ],
+          }
+        }
+
+        const matched = options.servers.find(
+          (s) => s.name.toLowerCase() === targetName.toLowerCase(),
+        )
+        if (!matched) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Server "${targetName}" not found. Available servers: ${serverNames.map((n) => `"${n}"`).join(', ')}`,
+              },
+            ],
+          }
+        }
+
+        console.log(
+          `[MCP] paulus_exec_server_command: server=${matched.name} command=${command.slice(0, 120)}`,
+        )
+        const result = await options.executeCommand(matched.name, command)
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `Server: ${matched.name}\n` +
+                `Command: ${command}\n` +
+                `Exit code: ${result.exitCode}\n` +
+                `STDOUT:\n${result.stdout || '(empty)'}\n` +
+                `STDERR:\n${result.stderr || '(empty)'}`,
+            },
+          ],
+        }
+      },
+    ),
   )
 
   mcpServer.registerTool(
     'paulus_get_server_context',
     {
-      description: 'Return the selected server metadata Paulus already knows.',
-      inputSchema: emptySchema,
+      description:
+        options.servers.length === 1
+          ? 'Return the server metadata Paulus already knows.'
+          : 'Return server metadata Paulus already knows. Optionally specify a server name, or omit to get all.',
+      inputSchema: contextSchema,
     },
-    defineMcpTool('paulus_get_server_context', emptySchema, options, async () => {
-      const server = options.server
+    defineMcpTool('paulus_get_server_context', contextSchema, options, async ({ server }) => {
+      const targets = server
+        ? options.servers.filter((s) => s.name.toLowerCase() === server.toLowerCase())
+        : options.servers
+
+      if (targets.length === 0) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Server "${server}" not found. Available servers: ${serverNames.map((n) => `"${n}"`).join(', ')}`,
+            },
+          ],
+        }
+      }
+
+      const text = targets
+        .map(
+          (s) =>
+            `Name: ${s.name}\n` +
+            `Host/IP: ${s.host}\n` +
+            `Port: ${s.port}\n` +
+            `Username: ${s.username}\n` +
+            `Auth method: ${s.authMethod}\n` +
+            `Connected in Paulus: ${s.connected ? 'yes' : 'no'}\n` +
+            `Tags: ${s.tags.join(', ') || 'none'}`,
+        )
+        .join('\n\n---\n\n')
+
       return {
-        content: [
-          {
-            type: 'text',
-            text:
-              `Name: ${server.name}\n` +
-              `Host/IP: ${server.host}\n` +
-              `Port: ${server.port}\n` +
-              `Username: ${server.username}\n` +
-              `Auth method: ${server.authMethod}\n` +
-              `Connected in Paulus: ${server.connected ? 'yes' : 'no'}\n` +
-              `Tags: ${server.tags.join(', ') || 'none'}`,
-          },
-        ],
+        content: [{ type: 'text', text }],
       }
     }),
   )
@@ -185,6 +264,8 @@ export class PaulusMcpServer {
   }
 
   private async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    console.log(`[MCP] ${req.method} ${req.url} session=${req.headers['mcp-session-id'] ?? 'none'}`)
+
     if (!req.url || !req.url.startsWith('/mcp')) {
       res.statusCode = 404
       res.end('Not found')

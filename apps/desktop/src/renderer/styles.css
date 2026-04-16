@@ -1,7 +1,80 @@
 @import 'tailwindcss';
 @source "../../../../packages/ui/src/**/*.tsx";
 
-/* assistant-ui markdown prose styling */
+/* Class-based dark mode for accent color overrides */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Theme tokens ─── */
+:root {
+  /* Surfaces */
+  --th-surface: #ffffff;
+  --th-surface-alt: #fafafa;
+  --th-surface-raised: #f4f4f5;
+  --th-surface-active: #e4e4e7;
+  --th-surface-strong: #d4d4d8;
+  --th-surface-invert: #27272a;
+  --th-surface-invert-hover: #3f3f46;
+
+  /* Foreground */
+  --th-fg: #18181b;
+  --th-fg-secondary: #3f3f46;
+  --th-fg-tertiary: #52525b;
+  --th-fg-muted: #a1a1aa;
+  --th-fg-faint: #71717a;
+  --th-fg-dim: #a1a1aa;
+  --th-fg-invert: #f4f4f5;
+
+  /* Edges */
+  --th-edge: #d4d4d8;
+  --th-edge-subtle: #e4e4e7;
+  --th-edge-strong: #a1a1aa;
+}
+
+.dark {
+  --th-surface: #09090b;
+  --th-surface-alt: #18181b;
+  --th-surface-raised: #27272a;
+  --th-surface-active: #3f3f46;
+  --th-surface-strong: #52525b;
+  --th-surface-invert: #f4f4f5;
+  --th-surface-invert-hover: #e4e4e7;
+
+  --th-fg: #f4f4f5;
+  --th-fg-secondary: #e4e4e7;
+  --th-fg-tertiary: #d4d4d8;
+  --th-fg-muted: #a1a1aa;
+  --th-fg-faint: #71717a;
+  --th-fg-dim: #52525b;
+  --th-fg-invert: #18181b;
+
+  --th-edge: #3f3f46;
+  --th-edge-subtle: #27272a;
+  --th-edge-strong: #52525b;
+}
+
+@theme {
+  --color-surface: var(--th-surface);
+  --color-surface-alt: var(--th-surface-alt);
+  --color-surface-raised: var(--th-surface-raised);
+  --color-surface-active: var(--th-surface-active);
+  --color-surface-strong: var(--th-surface-strong);
+  --color-surface-invert: var(--th-surface-invert);
+  --color-surface-invert-hover: var(--th-surface-invert-hover);
+
+  --color-fg: var(--th-fg);
+  --color-fg-secondary: var(--th-fg-secondary);
+  --color-fg-tertiary: var(--th-fg-tertiary);
+  --color-fg-muted: var(--th-fg-muted);
+  --color-fg-faint: var(--th-fg-faint);
+  --color-fg-dim: var(--th-fg-dim);
+  --color-fg-invert: var(--th-fg-invert);
+
+  --color-edge: var(--th-edge);
+  --color-edge-subtle: var(--th-edge-subtle);
+  --color-edge-strong: var(--th-edge-strong);
+}
+
+/* ─── assistant-ui markdown prose styling ─── */
 .aui-md-root {
   @apply text-sm leading-relaxed overflow-x-auto;
 }
@@ -11,11 +84,11 @@
 }
 
 .aui-md-root pre {
-  @apply my-2 rounded-lg bg-zinc-950 p-3 overflow-x-auto text-xs;
+  @apply my-2 rounded-lg bg-surface p-3 overflow-x-auto text-xs;
 }
 
 .aui-md-root code:not(pre code) {
-  @apply rounded bg-zinc-800 px-1.5 py-0.5 text-xs font-mono text-zinc-200;
+  @apply rounded bg-surface-raised px-1.5 py-0.5 text-xs font-mono text-fg-secondary;
 }
 
 .aui-md-root ul,
@@ -38,7 +111,7 @@
 .aui-md-root h1,
 .aui-md-root h2,
 .aui-md-root h3 {
-  @apply font-semibold mt-3 mb-1 text-zinc-100;
+  @apply font-semibold mt-3 mb-1 text-fg;
 }
 
 .aui-md-root a {
@@ -46,7 +119,7 @@
 }
 
 .aui-md-root blockquote {
-  @apply border-l-2 border-zinc-700 pl-3 my-2 text-zinc-400;
+  @apply border-l-2 border-edge pl-3 my-2 text-fg-muted;
 }
 
 .aui-md-root table {
@@ -54,22 +127,22 @@
 }
 
 .aui-md-root thead {
-  @apply bg-zinc-900/80;
+  @apply bg-surface-alt/80;
 }
 
 .aui-md-root th,
 .aui-md-root td {
-  @apply border border-zinc-800 px-2 py-1 align-top whitespace-nowrap;
+  @apply border border-edge-subtle px-2 py-1 align-top whitespace-nowrap;
 }
 
 .aui-md-root th {
-  @apply text-left font-medium text-zinc-100;
+  @apply text-left font-medium text-fg;
 }
 
 .aui-md-root td {
-  @apply text-zinc-300;
+  @apply text-fg-tertiary;
 }
 
 .aui-md-root hr {
-  @apply my-3 border-zinc-800;
+  @apply my-3 border-edge-subtle;
 }

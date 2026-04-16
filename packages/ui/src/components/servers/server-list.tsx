@@ -135,7 +135,7 @@ export function ServerList({
   )
 
   if (visibleCategoryGroups.length === 0) {
-    return <p className="text-xs text-zinc-600 px-2 py-4 text-center">No servers yet</p>
+    return <p className="text-xs text-fg-dim px-2 py-4 text-center">No servers yet</p>
   }
 
   return (
@@ -151,7 +151,7 @@ export function ServerList({
             key={group.name}
             className={`rounded-lg border px-1 py-1 ${
               isCategoryDropTarget
-                ? 'border-zinc-600 bg-zinc-900'
+                ? 'border-edge-strong bg-surface-alt'
                 : 'border-transparent bg-transparent'
             }`}
             onDragOver={(event) => {
@@ -239,7 +239,7 @@ export function ServerList({
                           openContextMenu(server.id, event.clientX, event.clientY)
                         }}
                         className={`cursor-pointer select-none rounded px-2 py-2 ${
-                          isActive ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                          isActive ? 'bg-surface-raised' : 'hover:bg-surface-raised/50'
                         } ${draggedServerId === server.id ? 'opacity-50' : ''}`}
                         style={
                           server.color
@@ -258,14 +258,14 @@ export function ServerList({
                                   ? 'bg-yellow-400'
                                   : connection?.status === 'error'
                                     ? 'bg-red-400'
-                                    : 'bg-zinc-600'
+                                    : 'bg-surface-strong'
                             }`}
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm leading-5 text-zinc-200">
+                            <p className="truncate text-sm leading-5 text-fg-secondary">
                               {server.name}
                             </p>
-                            <p className="truncate text-xs text-zinc-500">
+                            <p className="truncate text-xs text-fg-faint">
                               {anonymousMode ? maskHost(server.host) : server.host}
                             </p>
                           </div>
@@ -278,7 +278,7 @@ export function ServerList({
                               const rect = event.currentTarget.getBoundingClientRect()
                               openContextMenu(server.id, rect.right - 8, rect.bottom + 4)
                             }}
-                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-fg-faint hover:bg-surface-raised hover:text-fg-secondary"
                           >
                             <svg
                               className="h-4 w-4"
@@ -360,14 +360,14 @@ function buildCategoryGroups(
 }
 
 function DropIndicator() {
-  return <div className="mx-2 my-1 h-1 rounded-full bg-zinc-100/90" />
+  return <div className="mx-2 my-1 h-1 rounded-full bg-surface-invert/90" />
 }
 
 function EmptyCategorySlot({ highlighted }: { highlighted: boolean }) {
   return (
     <div
       className={`mx-2 my-1 rounded border border-dashed px-2 py-3 text-center text-[11px] ${
-        highlighted ? 'border-zinc-500 text-zinc-300' : 'border-zinc-800 text-zinc-600'
+        highlighted ? 'border-edge-strong text-fg-tertiary' : 'border-edge-subtle text-fg-dim'
       }`}
     >
       Drop servers here
@@ -436,7 +436,7 @@ function CategoryHeader({
               onCancelRename()
             }
           }}
-          className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-200 focus:border-zinc-500 focus:outline-none"
+          className="w-full rounded border border-edge bg-surface-alt px-2 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-fg-secondary focus:border-edge-strong focus:outline-none"
         />
       </div>
     )
@@ -450,7 +450,7 @@ function CategoryHeader({
         onDoubleClick={() => {
           if (!isDefaultCategory) onStartRename()
         }}
-        className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-300"
+        className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[11px] font-medium uppercase tracking-[0.18em] text-fg-faint hover:text-fg-tertiary"
         title={
           isDefaultCategory
             ? `${name} — click to ${isCollapsed ? 'expand' : 'collapse'}`
@@ -459,7 +459,7 @@ function CategoryHeader({
         aria-expanded={!isCollapsed}
       >
         <svg
-          className={`h-3 w-3 flex-shrink-0 text-zinc-500 transition-transform ${
+          className={`h-3 w-3 flex-shrink-0 text-fg-faint transition-transform ${
             isCollapsed ? '-rotate-90' : ''
           }`}
           viewBox="0 0 20 20"
@@ -475,7 +475,7 @@ function CategoryHeader({
         <span className="truncate">{name}</span>
       </button>
       <div className="flex items-center gap-1">
-        <span className="rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-500">
+        <span className="rounded-full bg-surface-alt px-1.5 py-0.5 text-[10px] text-fg-faint">
           {count}
         </span>
         {!isDefaultCategory && (
@@ -485,7 +485,7 @@ function CategoryHeader({
               onClick={onStartRename}
               title="Rename category"
               aria-label={`Rename ${name}`}
-              className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+              className="flex h-5 w-5 items-center justify-center rounded text-fg-faint hover:bg-surface-raised hover:text-fg-secondary"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793ZM11.379 5.793 3 14.172V17h2.828l8.379-8.379-2.828-2.828Z" />
@@ -508,7 +508,7 @@ function CategoryHeader({
               }}
               title="Delete category"
               aria-label={`Delete ${name}`}
-              className="flex h-5 w-5 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
+              className="flex h-5 w-5 items-center justify-center rounded text-fg-faint hover:bg-surface-raised hover:text-red-300"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -552,7 +552,7 @@ function ServerContextMenu({
 }) {
   return (
     <div
-      className="fixed z-50 min-w-48 overflow-hidden rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-2xl"
+      className="fixed z-50 min-w-48 overflow-hidden rounded-md border border-edge bg-surface-alt py-1 shadow-2xl"
       style={{ left: x, top: y }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -584,8 +584,8 @@ function ServerContextMenu({
 
       {categories.length > 0 && (
         <>
-          <div className="my-1 border-t border-zinc-800" />
-          <div className="px-3 pb-0.5 pt-1 text-[10px] uppercase tracking-wider text-zinc-500">
+          <div className="my-1 border-t border-edge-subtle" />
+          <div className="px-3 pb-0.5 pt-1 text-[10px] uppercase tracking-wider text-fg-faint">
             Move to
           </div>
           <div className="max-h-48 overflow-y-auto">
@@ -602,12 +602,12 @@ function ServerContextMenu({
                       onMoveToCategory(category)
                     }
                   }}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-default disabled:text-zinc-500 disabled:hover:bg-transparent"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-fg-secondary hover:bg-surface-raised disabled:cursor-default disabled:text-fg-faint disabled:hover:bg-transparent"
                 >
                   <span className="truncate">{category}</span>
                   {isCurrent && (
                     <svg
-                      className="h-3.5 w-3.5 text-zinc-500"
+                      className="h-3.5 w-3.5 text-fg-faint"
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
@@ -642,7 +642,7 @@ function ContextMenuButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 disabled:cursor-default disabled:text-zinc-500 disabled:hover:bg-transparent"
+      className="flex w-full items-center px-3 py-2 text-left text-sm text-fg-secondary hover:bg-surface-raised disabled:cursor-default disabled:text-fg-faint disabled:hover:bg-transparent"
     >
       {label}
     </button>
