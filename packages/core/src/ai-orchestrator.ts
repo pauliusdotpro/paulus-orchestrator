@@ -5,7 +5,6 @@ import {
   buildServerCommandToolState,
   createCommandToolOutput,
   createProvider,
-  formatCommandResultForModel,
   toolStateEvent,
 } from '@paulus/ai'
 import type { RuntimeEventSink } from './events'
@@ -202,7 +201,12 @@ export class AIOrchestrator {
 
       const run = this.activeRuns.get(sessionId)
       if (run) {
-        run.process.write(formatCommandResultForModel(result))
+        run.process.write({
+          kind: 'result',
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        })
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -225,13 +229,12 @@ export class AIOrchestrator {
 
       const run = this.activeRuns.get(sessionId)
       if (run) {
-        run.process.write(
-          formatCommandResultForModel({
-            exitCode: 1,
-            stdout: '',
-            stderr: `Command failed on ${pending.serverName}: ${message}`,
-          }),
-        )
+        run.process.write({
+          kind: 'result',
+          exitCode: 1,
+          stdout: '',
+          stderr: `Command failed on ${pending.serverName}: ${message}`,
+        })
       }
     }
   }
@@ -242,7 +245,7 @@ export class AIOrchestrator {
 
     const run = this.activeRuns.get(sessionId)
     if (run) {
-      run.process.write('Command rejected by user')
+      run.process.write({ kind: 'rejected', reason: 'Command rejected by user' })
     }
 
     this.emitAIEvent(

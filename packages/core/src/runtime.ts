@@ -47,7 +47,13 @@ export async function createPaulusRuntime(
     },
   }
   const sessions = new SessionManager(storage, terminalSessions)
-  const serverManager = new ServerManager(storage, credentials, terminalSessions, eventSink)
+  const serverManager = new ServerManager(
+    storage,
+    credentials,
+    terminalSessions,
+    sessions,
+    eventSink,
+  )
   const aiOrchestrator = new AIOrchestrator(
     eventSink,
     serverManager,

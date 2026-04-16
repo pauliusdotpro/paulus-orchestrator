@@ -1,4 +1,10 @@
-export type { AIProvider, AIProcess, AIContext, AIRunOptions } from './provider'
+export type {
+  AIProvider,
+  AIProcess,
+  AIContext,
+  AIRunOptions,
+  AICommandResolution,
+} from './provider'
 export { createProvider } from './provider'
 export {
   PAULUS_SERVER_COMMAND_TOOL,

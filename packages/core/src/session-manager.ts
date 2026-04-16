@@ -7,6 +7,13 @@ import type { TerminalSessionManager } from './terminal-session-manager'
 type SessionLookupIndex = Record<string, string>
 
 export class SessionManager {
+  // Per-server promise chain that serializes mutations of the server session
+  // index. Without it, two simultaneous create()/delete() calls for the same
+  // server can both read the index, both push, and the later write loses the
+  // earlier mutation — leaving sessions on disk that list() can never find.
+  private readonly serverIndexLocks = new Map<string, Promise<unknown>>()
+  private readonly globalIndexLock = { promise: Promise.resolve() as Promise<unknown> }
+
   constructor(
     private readonly storage: StorageService,
     private readonly terminalSessions: TerminalSessionManager,
@@ -16,13 +23,14 @@ export class SessionManager {
     const index = await this.storage.get<string[]>(this.serverIndexKey(serverId))
     if (!index) return []
 
-    const sessions: AISession[] = []
-    for (const id of index) {
-      const session = await this.storage.get<AISession>(this.sessionKey(serverId, id))
-      if (session) sessions.push(await this.normalizeSession(session))
-    }
+    const loaded = await Promise.all(
+      index.map(async (id) => {
+        const session = await this.storage.get<AISession>(this.sessionKey(serverId, id))
+        return session ? this.normalizeSession(session) : null
+      }),
+    )
 
-    return sessions
+    return loaded.filter((session): session is AISession => session !== null)
   }
 
   async get(sessionId: string): Promise<AISession> {
@@ -51,18 +59,24 @@ export class SessionManager {
     }
     await this.save(session)
 
-    // Index under each server so the session is visible from any of them
+    // Index under each server so the session is visible from any of them.
+    // Serialized per server to prevent concurrent create()/delete() calls
+    // from clobbering each other's index updates.
     for (const serverId of serverIds) {
-      const index = (await this.storage.get<string[]>(this.serverIndexKey(serverId))) ?? []
-      if (!index.includes(session.id)) {
-        index.push(session.id)
-        await this.storage.set(this.serverIndexKey(serverId), index)
-      }
+      await this.withServerIndexLock(serverId, async () => {
+        const index = (await this.storage.get<string[]>(this.serverIndexKey(serverId))) ?? []
+        if (!index.includes(session.id)) {
+          index.push(session.id)
+          await this.storage.set(this.serverIndexKey(serverId), index)
+        }
+      })
     }
 
-    const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
-    lookup[session.id] = primaryServerId
-    await this.storage.set(this.globalIndexKey(), lookup)
+    await this.withGlobalIndexLock(async () => {
+      const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
+      lookup[session.id] = primaryServerId
+      await this.storage.set(this.globalIndexKey(), lookup)
+    })
 
     return session
   }
@@ -81,46 +95,62 @@ export class SessionManager {
     const serverId = await this.getServerIdForSession(sessionId)
     if (!serverId) return
 
-    const indexKey = this.serverIndexKey(serverId)
-    const index = (await this.storage.get<string[]>(indexKey)) ?? []
-    const nextIndex = index.filter((id) => id !== sessionId)
+    await this.withServerIndexLock(serverId, async () => {
+      const indexKey = this.serverIndexKey(serverId)
+      const index = (await this.storage.get<string[]>(indexKey)) ?? []
+      const nextIndex = index.filter((id) => id !== sessionId)
 
-    if (nextIndex.length > 0) {
-      await this.storage.set(indexKey, nextIndex)
-    } else {
-      await this.storage.remove(indexKey)
-    }
+      if (nextIndex.length > 0) {
+        await this.storage.set(indexKey, nextIndex)
+      } else {
+        await this.storage.remove(indexKey)
+      }
+    })
 
     await this.storage.remove(this.sessionKey(serverId, sessionId))
     await this.terminalSessions.delete(sessionId)
 
-    const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
-    delete lookup[sessionId]
-    if (Object.keys(lookup).length > 0) {
-      await this.storage.set(this.globalIndexKey(), lookup)
-    } else {
-      await this.storage.remove(this.globalIndexKey())
-    }
+    await this.withGlobalIndexLock(async () => {
+      const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
+      delete lookup[sessionId]
+      if (Object.keys(lookup).length > 0) {
+        await this.storage.set(this.globalIndexKey(), lookup)
+      } else {
+        await this.storage.remove(this.globalIndexKey())
+      }
+    })
   }
 
   async deleteForServer(serverId: string): Promise<void> {
     const indexKey = this.serverIndexKey(serverId)
-    const index = await this.storage.get<string[]>(indexKey)
-    if (!index?.length) return
 
-    const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
-    for (const sessionId of index) {
-      await this.storage.remove(this.sessionKey(serverId, sessionId))
-      await this.terminalSessions.delete(sessionId)
-      delete lookup[sessionId]
-    }
+    const sessionIds = await this.withServerIndexLock(serverId, async () => {
+      const index = (await this.storage.get<string[]>(indexKey)) ?? []
+      if (index.length === 0) return [] as string[]
+      await this.storage.remove(indexKey)
+      return index
+    })
 
-    await this.storage.remove(indexKey)
-    if (Object.keys(lookup).length > 0) {
-      await this.storage.set(this.globalIndexKey(), lookup)
-    } else {
-      await this.storage.remove(this.globalIndexKey())
-    }
+    if (sessionIds.length === 0) return
+
+    await Promise.all(
+      sessionIds.map(async (sessionId) => {
+        await this.storage.remove(this.sessionKey(serverId, sessionId))
+        await this.terminalSessions.delete(sessionId)
+      }),
+    )
+
+    await this.withGlobalIndexLock(async () => {
+      const lookup = (await this.storage.get<SessionLookupIndex>(this.globalIndexKey())) ?? {}
+      for (const sessionId of sessionIds) {
+        delete lookup[sessionId]
+      }
+      if (Object.keys(lookup).length > 0) {
+        await this.storage.set(this.globalIndexKey(), lookup)
+      } else {
+        await this.storage.remove(this.globalIndexKey())
+      }
+    })
   }
 
   async addMessage(sessionId: string, message: AIMessage): Promise<void> {
@@ -174,6 +204,30 @@ export class SessionManager {
   private async getServerIdForSession(sessionId: string): Promise<string | null> {
     const lookup = await this.storage.get<SessionLookupIndex>(this.globalIndexKey())
     return lookup?.[sessionId] ?? null
+  }
+
+  private async withServerIndexLock<T>(serverId: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.serverIndexLocks.get(serverId) ?? Promise.resolve()
+    const next = previous.then(task, task)
+    this.serverIndexLocks.set(
+      serverId,
+      next.catch(() => undefined),
+    )
+    try {
+      return await next
+    } finally {
+      // Drop the entry once it is the tail of the chain to avoid unbounded growth.
+      if (this.serverIndexLocks.get(serverId) === next) {
+        this.serverIndexLocks.delete(serverId)
+      }
+    }
+  }
+
+  private async withGlobalIndexLock<T>(task: () => Promise<T>): Promise<T> {
+    const previous = this.globalIndexLock.promise
+    const next = previous.then(task, task)
+    this.globalIndexLock.promise = next.catch(() => undefined)
+    return next
   }
 
   private sessionKey(serverId: string, sessionId: string): string {

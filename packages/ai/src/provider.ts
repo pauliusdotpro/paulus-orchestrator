@@ -23,9 +23,13 @@ export interface AIContext {
   onPaulusToolCall?: (toolName: string, args: Record<string, unknown>) => void
 }
 
+export type AICommandResolution =
+  | { kind: 'result'; exitCode: number; stdout: string; stderr: string }
+  | { kind: 'rejected'; reason?: string }
+
 export interface AIProcess {
   events: AsyncIterable<AIEvent>
-  write(input: string): void
+  write(input: AICommandResolution): void
   kill(): void
 }
 

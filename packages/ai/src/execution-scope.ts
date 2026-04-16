@@ -28,7 +28,10 @@ const LOCAL_SCOPE_PATTERNS = [
   /\bmy\s+(mac|macos|machine|laptop|computer|host)\b/i,
   /\bthis\s+(mac|machine|host)\b/i,
   /\bhost\s+machine\b/i,
-  /\bworkspace\b/i,
+  // Bare `workspace` matches phrases like "workspace directory on the server"
+  // that clearly mean the remote box, so require a possessive/qualifier that
+  // unambiguously points at the local checkout.
+  /\b(my|current|this|local)\s+(local\s+)?workspace\b/i,
   /\bcurrent\s+repo\b/i,
   /\bon\s+my\s+computer\b/i,
 ]

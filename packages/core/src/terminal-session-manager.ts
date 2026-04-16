@@ -11,6 +11,11 @@ const EMPTY_TERMINAL_STATE: PersistedTerminalSessionState = {
   nextLineId: 1,
 }
 
+// Per-session rolling buffer cap. Without it, long-lived terminals re-read and
+// re-write the entire line array on every SSH chunk, which grows unbounded and
+// makes append O(n) over the full session lifetime.
+const MAX_TERMINAL_LINES = 2000
+
 export class TerminalSessionManager {
   constructor(private readonly storage: StorageService) {}
 
@@ -25,14 +30,14 @@ export class TerminalSessionManager {
   async recordCommand(sessionId: string, command: string): Promise<TerminalSessionState> {
     const state = await this.load(sessionId)
     state.history = [...state.history, command]
-    state.lines = [
+    state.lines = capLines([
       ...state.lines,
       {
         id: state.nextLineId++,
         text: `$ ${command}`,
         type: 'stdin',
       },
-    ]
+    ])
     await this.save(sessionId, state)
     return {
       lines: state.lines,
@@ -51,7 +56,7 @@ export class TerminalSessionManager {
     }
 
     const state = await this.load(sessionId)
-    state.lines = [
+    state.lines = capLines([
       ...state.lines,
       ...textLines.map(
         (text): TerminalLine => ({
@@ -60,7 +65,7 @@ export class TerminalSessionManager {
           type: stream,
         }),
       ),
-    ]
+    ])
     await this.save(sessionId, state)
     return {
       lines: state.lines,
@@ -70,14 +75,14 @@ export class TerminalSessionManager {
 
   async appendSystem(sessionId: string, text: string): Promise<TerminalSessionState> {
     const state = await this.load(sessionId)
-    state.lines = [
+    state.lines = capLines([
       ...state.lines,
       {
         id: state.nextLineId++,
         text,
         type: 'system',
       },
-    ]
+    ])
     await this.save(sessionId, state)
     return {
       lines: state.lines,
@@ -114,6 +119,10 @@ export class TerminalSessionManager {
   private key(sessionId: string): string {
     return `session-terminals/${sessionId}`
   }
+}
+
+function capLines(lines: TerminalLine[]): TerminalLine[] {
+  return lines.length > MAX_TERMINAL_LINES ? lines.slice(-MAX_TERMINAL_LINES) : lines
 }
 
 function splitTerminalText(data: string): string[] {
